@@ -138,6 +138,9 @@ class DictRep(ProbRep):
             self.wqubits = self.sampler.properties['qubits']
             self.wcouplers = self.sampler.properties['couplers']
 
+    def __getitem__(self, index):
+        return self.H[index]
+
 
     def save_config(self, fname, config_data={}):
         """
@@ -485,7 +488,7 @@ class DictRep(ProbRep):
 
         return probs
 
-    def frem_anneal(self, schedules, partition, HR_init_state):
+    def frem_anneal(self, schedules, partition, init_state):
         """
         Performs a numeric FREM anneal on H using QuTip.
 
@@ -507,6 +510,13 @@ class DictRep(ProbRep):
         HR = DictRep(H = partition['HR'], qpu = 'numerical', vartype = 'ising', encoding = 'logical')
         HF = DictRep(H = partition['HF'], qpu = 'numerical', vartype = 'ising', encoding = 'logical')
         Rqubits = partition['Rqubits']
+
+        # deterine the HR_init_state by projecting init_state on HR partition
+        HR_init_state = []
+        for (idx, qs) in enumerate(init_state):
+            if idx in Rqubits:
+                HR_init_state.append(qs)
+        HR_init_state = ''.join([str(i) for i in HR_init_state])
 
         # prepare the initial state
         statelist = []
@@ -570,8 +580,8 @@ class DictRep(ProbRep):
         KL_div - the KL divergence of forward and FREM annealing w.r.t. diagonalization
         """
         f_sch = make_numeric_schedule(.1, **{'direction': 'forward', 'ta': T})
-        r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': ftr * T,
-                                                'sa': sval, 'tq': (1 - ftr) * T})
+        r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': (1 - ftr) * T,
+                                        'sa': sval, 'tq': ftr * T})
 
         # first, do direct diag on H
         # then extract non-zero entires ("gs" entries)
@@ -609,11 +619,11 @@ class DictRep(ProbRep):
         fdata = {'method': 'forward', 'T': T, 's': sval, 'ftr': ftr,
                  'part_size': self.nqubits, 'probs': fprobs, 'KL_div': entropy(dprobs, fprobs),
                  'gs_KL_div': entropy(gs_dprobs, gs_fprobs), 'gs_prob': sum(gs_fprobs)}
-        
+
         rdata = {'method': 'reverse', 'T': T, 's': sval, 'ftr': ftr,
                  'part_size': self.nqubits, 'probs': rprobs, 'KL_div': entropy(dprobs, rprobs),
                  'gs_KL_div': entropy(gs_dprobs, gs_rprobs), 'gs_prob': sum(gs_rprobs)}
-        
+
         fremdata = {'method': 'frem', 'T': T, 's': sval, 'ftr': ftr,
                     'part_size': len(Rqubits), 'probs': fremprobs, 'KL_div': entropy(dprobs, fremprobs),
                     'gs_KL_div': entropy(gs_dprobs, gs_fremprobs), 'gs_prob': sum(gs_fremprobs)}

@@ -21,7 +21,7 @@ def densify_unitcell(fqbit, hweight, Jweight, wqubits, wcouplers, ucsize = 8):
     '''
     Heuristically makes the most dense connection motif within a unit
     cell with ucsize qubits whose first (lowest #) qubit is fqbit
-    
+
     Inputs
     ------
     fqbit: index of first qubit in unit cell
@@ -37,7 +37,7 @@ def densify_unitcell(fqbit, hweight, Jweight, wqubits, wcouplers, ucsize = 8):
     couplings = []
     if lqubit in wqubits:
         qubits.append(lqubit)
-        
+
     # begin big heuristic loop
     # flags true when unit cell is heuristically, densely connected
     #complete = False
