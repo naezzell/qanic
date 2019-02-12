@@ -141,6 +141,8 @@ class DictRep(ProbRep):
     def __getitem__(self, index):
         return self.H[index]
 
+    def __str__(self):
+        return str(self.H)
 
     def save_config(self, fname, config_data={}):
         """

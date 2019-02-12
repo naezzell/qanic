@@ -121,6 +121,9 @@ def frem_sim(H, annparams, part_gen):
     p_btr = (len(btr_runs) / numpar) * 100
     # get avg gs_prob of ALL frem runs
     avgfrem_pgs = frem_runs['pgs'].mean()
+    # of those that are better, find distribution of partition size
+    btf_partdist = dict((btf_runs['nRq'].value_counts() / len(btf_runs)) * 100)
+    btr_partdist = dict((btr_runs['nRq'].value_counts() / len(btr_runs)) * 100)
     # get stats on critical qubit
     if crit_exists:
         # % best frem result that is critical
@@ -177,7 +180,9 @@ def frem_sim(H, annparams, part_gen):
         f.write("number of frem partitions tried: {}\n".format(numpar))
         f.write("avg frem gs prob: {}\n".format(avgfrem_pgs))
         f.write("percent better than forward: {}\n".format(p_btf))
+        f.write("part size dist of those better than forward: {}\n".format(btf_partdist))
         f.write("percent better than reverse: {}\n".format(p_btr))
+        f.write("part size dist of those better than reverse: {}\n".format(btr_partdist))
         f.write("\n")
         f.write("Critical Qubit Results\n")
         f.write("---------------------------------------------------------\n")
