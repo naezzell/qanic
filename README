@@ -1,5 +1,38 @@
-Repo designed to make it easier to inteface with D-Wave's quantum annealers, 
-both simulators and real Quantum Processing Units. Currently working on some 
-additional features to make it easier to submit custom problems and 
-adding support with QuTip to run open-system numerical simulations of 
-annealing to compare to D-Wave.
+In short, this is a quantum annealing (QA) repo. It contains
+various code that I have found useful in my own QA research starting in Summer
+2018 at Oak Ridge National Lab and continuing on into the present at my under-
+grad instituion, Mississippi State University. It's purpose/ functionaity is
+best understood by discussing it in four parts: probrep, dwave, numerics, and
+simuatlions.
+
+ProbRep (and really, DictRep)
+==============================
+Since people from different backgrounds are all interested in QA, they tend to
+encode their problems differently. The idea behind the ProbRep class is to
+capture this notion in an abstract base class, or ABC for short. As an ABC,
+this class ensures that any valid encoding implementation has support for all
+the operations a researcher would be interested in, i.e. running the problem
+on D-Wave, performing numerical diagonzlation, etc...
+
+DictRep is a bona-fide class I've designed to handle my own encoding scheme:
+Hamiltonians as dictionaries. It contains a large number of methods that I've
+designed as they were needed. Truthfully, it could use some organization...
+
+Dwave
+==============================
+This contains utilities for connecting to D-Wave and running problems on
+D-Wave chips. For example, this has a utility for creating D-Wave anneal
+schedules with a simpler input syntax than that desired by their API.
+
+Numerics
+==============================
+This contains a bunch of code to allow for numeric computations such as
+diagonalization, numeric quantum annealing that emulates the D-wave process,
+and more.
+
+Simulations
+==============================
+Using the Dwave and Numerics utilities, it is often natural to design
+various simulations/ experiments to test ideas. For example, one such idea
+is forward-reverse error-mitigation (FREM) annealing that I am currently
+researching.
