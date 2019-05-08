@@ -19,7 +19,7 @@ def frem_sim(H, annparams, part_gen):
     * annparams - dictionary containing annealing parameters
         T - (float) total annealing length
         s - (float) depth of reverse anneal
-        ftr - (float) ratio of for to rev anneal time during frem protocol
+        rtf - (float) ratio of for to rev anneal time during frem protocol
     * part_gen - a generator that yields partitions of H; should yield data of the form
         (partition, critq_with_R, perRteam)
     --partition is a dictionary containing the Hamiltonian partition
@@ -34,10 +34,10 @@ def frem_sim(H, annparams, part_gen):
     * run summary: contains inputs, correct gs, forward result, reverse result, and frem summary/ comparisons
     """
     # do a little pre-processing
-    T, s, ftr = annparams['T'], annparams['s'], annparams['ftr']
+    T, s, rtf = annparams['T'], annparams['s'], annparams['rtf']
     assert type(T) is float or type(T) is int
     assert (type(s) is float or type(s) is int) and s >= 0 and s <= 1
-    assert (type(ftr) is float or type(ftr) is int) and ftr > 0 and ftr < 1
+    assert (type(rtf) is float or type(rtf) is int or type(rtf) == str)
 
     # initialize (pre pandas) data list
     listdata = []
@@ -65,7 +65,10 @@ def frem_sim(H, annparams, part_gen):
 
     # make forward/reverse anneal schedules
     f_sch = make_numeric_schedule(.1, **{'direction': 'forward', 'ta': T})
-    r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': (1 - ftr) * T, 'sa': s, 'tq': ftr * T})
+    if type(rtf) is str:
+        r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': T, 'sa': s, 'tq': T})
+    else:
+        r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': rtf * T, 'sa': s, 'tq': (1 - rtf) * T})
 
     # perform numerical forward anneal
     fprobs = H.nf_anneal(f_sch)
@@ -155,7 +158,7 @@ def frem_sim(H, annparams, part_gen):
 
     # set-up file names for raw data and summary data
     date = time.strftime("%dd%mm%Yy-%Hh%Mm%Ss")
-    infostr = "H-{H}_T-{T}_s-{s}_ftr-{ftr}_date-{date}".format(H=H.type, T=T, s=s, ftr=ftr, date=date)
+    infostr = "H-{H}_T-{T}_s-{s}_rtf-{rtf}_date-{date}".format(H=H.type, T=T, s=s, rtf=rtf, date=date)
     summ_file = "summ_{}.txt".format(infostr)
     raw_file = "raw_{}.csv".format(infostr)
 
@@ -170,7 +173,7 @@ def frem_sim(H, annparams, part_gen):
         f.write("degeneracy: {}\n".format(ndegen))
         f.write("T: {}\n".format(T))
         f.write("s: {}\n".format(s))
-        f.write("forward-to-reverse ratio: {}\n".format(ftr))
+        f.write("forward-to-reverse ratio: {}\n".format(rtf))
         f.write("\n")
         f.write("Bulk Results\n")
         f.write("---------------------------------------------------------\n")
