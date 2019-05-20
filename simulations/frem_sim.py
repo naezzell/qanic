@@ -1,25 +1,32 @@
+"""FREM simulation protocol."""
 # standard libarary imports
 import sys
+import time
+
+# common library imports 
 import numpy as np
 import pandas as pd
-import time
-# dwaveutils library functions
-sys.path.append("../dwaveutils/dwavetools")
-sys.path.append("../dwaveutils/probrep")
-from dictrep import DictRep
-from dwavetools import make_numeric_schedule, ml_measurement
 
+# qanic library functions
+sys.path.append("..")
+import qanic as qa
 
-def frem_sim(H, annparams, part_gen):
+def frem_sim(H, annparams, m_scheme, part_gen):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing as compared to standard forward and reverse annealing.
 
     Arguments:
-    * H - a DictRep hamiltonian
+    * H - an IsingH hamiltonian
     * annparams - dictionary containing annealing parameters
-        T - (float) total annealing length
+        foTf - (float) forward anneal annealing time
+        reTf - (float) reverse anneal forward annealing time
+        reTr - (float) reverse anneal reverse annealing time
+        frFTf - (float) frem F-part f annealing time
+        frRTf - (float) frem R-part f annealing time
+        frRTr - (float) frem R-part r annealing time
         s - (float) depth of reverse anneal
-        rtf - (float) ratio of for to rev anneal time during frem protocol
+    * m_scheme - a function that specifies measurement scheme
+        takes prob dist as input and resturns dict of {q0: state...}
     * part_gen - a generator that yields partitions of H; should yield data of the form
         (partition, critq_with_R, perRteam)
     --partition is a dictionary containing the Hamiltonian partition
@@ -33,20 +40,21 @@ def frem_sim(H, annparams, part_gen):
     * rawdata: contains inputs, correct ground-state, forward result, reverse result, and frem results
     * run summary: contains inputs, correct gs, forward result, reverse result, and frem summary/ comparisons
     """
-    # do a little pre-processing
-    T, s, rtf = annparams['T'], annparams['s'], annparams['rtf']
-    assert type(T) is float or type(T) is int
-    assert (type(s) is float or type(s) is int) and s >= 0 and s <= 1
-    assert (type(rtf) is float or type(rtf) is int or type(rtf) == str)
-
+    # get annealing parameters and verify type
+    foTf = annparams['foTf']
+    reparams = ['reTf', 'reTr', 's']
+    reTf, reTr, s = [annparams[key] for key in reparams]
+    fremparams = ['frFTf', 'frRTf', 'frRTr']
+    frFTf, frRTf, frRTr = [annparams[key] for key in fremparams]
+    
     # initialize (pre pandas) data list
     listdata = []
 
     # try to diagonlize unless input wrong
     try:
-        gsprobs = H.diag_H()
-        # get degeneracy
-        ndegen = len([prob for prob in gsprobs if prob != 0])
+        gsinfo = H.get_Hz_gs()
+        gsprobs = (gsinfo['gs'].conj()*gsinfo['gs']).real
+        ndegen = gsinfo['degen']
         # get indices of non-zero probs
         nzidxs = np.nonzero(gsprobs)
         # get non-zero gs entries
@@ -63,23 +71,21 @@ def frem_sim(H, annparams, part_gen):
         print("Hamiltonian too big to fit into memory.")
         raise
 
-    # make forward/reverse anneal schedules
-    f_sch = make_numeric_schedule(.1, **{'direction': 'forward', 'ta': T})
-    if type(rtf) is str:
-        r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': T, 'sa': s, 'tq': T})
-    else:
-        r_sch = make_numeric_schedule(.1, **{'direction': 'reverse', 'ta': rtf * T, 'sa': s, 'tq': (1 - rtf) * T})
-
     # perform numerical forward anneal
-    fprobs = H.nf_anneal(f_sch)
+    f_ann_params = {'t1': foTf, 'direction': 'f'}
+    fstate = H.numeric_anneal(f_ann_params)
+    fprobs = (fstate.conj()*fstate).real
     gs_fprobs = fprobs[nzidxs]
     # save result
     dictdatum = {'method': 'f', 'pgs': sum(gs_fprobs), 'gs_dist': gs_fprobs, 'nRq': None, 'critq_R': None, 'pM_R': None}
     listdata.append(dictdatum)
 
     # perform reverse anneal with init state given by forward anneal
-    init_state = ml_measurement(fprobs, H.nqubits)
-    rprobs = H.nr_anneal(r_sch, init_state)
+    init_state = m_scheme(H.qubits, fprobs)
+    r_ann_params = {'t1': reTf, 'direction': 'r', 't2': reTr, 's': s,
+                    'init_state': init_state}
+    rstate = H.numeric_anneal(r_ann_params)
+    rprobs = (rstate.conj()*rstate).real
     gs_rprobs = rprobs[nzidxs]
     # save result
     dictdatum = {'method': 'r', 'pgs': sum(gs_rprobs), 'gs_dist': gs_rprobs, 'nRq': None, 'critq_R': None, 'pM_R': None}
@@ -94,7 +100,11 @@ def frem_sim(H, annparams, part_gen):
             crit_exists = True
 
         # perform the FREM anneal
-        frem_probs = H.frem_anneal([f_sch, r_sch], part, init_state)
+        f_ann_params = {'t1': frFTf}
+        r_ann_params = {'t1': frRTf, 'direction': 'r', 's': s,
+                        't2': frRTf, 'init_state': init_state}
+        fremstate = H.frem_anneal(f_ann_params, r_ann_params, part)
+        frem_probs = (fremstate.conj()*fremstate).real 
         gs_fremprobs = frem_probs[nzidxs]
 
         # save data
@@ -158,7 +168,7 @@ def frem_sim(H, annparams, part_gen):
 
     # set-up file names for raw data and summary data
     date = time.strftime("%dd%mm%Yy-%Hh%Mm%Ss")
-    infostr = "H-{H}_T-{T}_s-{s}_rtf-{rtf}_date-{date}".format(H=H.type, T=T, s=s, rtf=rtf, date=date)
+    infostr = "H-{H}_date-{date}".format(H=H.kind, date=date)
     summ_file = "summ_{}.txt".format(infostr)
     raw_file = "raw_{}.csv".format(infostr)
 
@@ -169,11 +179,16 @@ def frem_sim(H, annparams, part_gen):
     with open(summ_file, 'w') as f:
         f.write("Input Data\n")
         f.write("---------------------------------------------------------\n")
-        f.write("H type: {}\n".format(H.type))
+        f.write("H kind: {}\n".format(H.kind))
         f.write("degeneracy: {}\n".format(ndegen))
-        f.write("T: {}\n".format(T))
+        f.write("foTf: {}\n".format(foTf))
+        f.write("reTf: {}\n".format(reTf))
+        f.write("reTr: {}\n".format(reTr))
+        f.write("frRTf: {}\n".format(frRTf))
+        f.write("frRTr: {}\n".format(frRTr))
         f.write("s: {}\n".format(s))
-        f.write("forward-to-reverse ratio: {}\n".format(rtf))
+        f.write("measurement scheme: {}\n".format(m_scheme.__name__))
+        f.write("partition scheme: {}\n".format(part_gen.__name__))
         f.write("\n")
         f.write("Bulk Results\n")
         f.write("---------------------------------------------------------\n")

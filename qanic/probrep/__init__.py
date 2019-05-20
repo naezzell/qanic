@@ -1,2 +1,5 @@
-from .probrep import ProbRep
-from .dictrep import DictRep
+"""
+QANic - A collection of quantum annealing software written for my research
+"""
+
+from qanic.probrep import isingh

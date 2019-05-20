@@ -1,7 +1,6 @@
 import sys
 from itertools import (chain, combinations)
-sys.path.append("../probrep")
-from dictrep import DictRep
+#from qanic.probrep.dictrep import DictRep
 
 
 def powerset(iterable):

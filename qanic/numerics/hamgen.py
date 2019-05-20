@@ -1,7 +1,4 @@
-import sys
 import random
-sys.path.append("../probrep")
-from dictrep import DictRep
 
 def sidonCBP(n, sidonh = False):
     """
