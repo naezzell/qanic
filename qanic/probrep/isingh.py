@@ -12,7 +12,7 @@ from . import utils
 class IsingH():
     """Class that performs common protocols on an Ising Hamiltonian."""
 
-    def __init__(self, input_Hz, AandBfile='default'):
+    def __init__(self, Hz, AandBfile='default'):
         """
         Input: hamiltonian in the form of a dictionary
         #TODO add support for other input types
@@ -20,23 +20,23 @@ class IsingH():
         Allows analysis of Ising Hamiltonians via numerical diagonalization,
         numerical annealing, and D-Wave annealing.
         """
-        if isinstance(input_Hz, dict):
-            self.input_Hz = input_Hz
+        if isinstance(Hz, dict):
+            self.Hz = Hz
         else:
             s_types = "dict"
-            c_type = str(type(input_Hz))
+            c_type = str(type(Hz))
             print("{} is not in list of supported types: {}".format(s_types ,c_type))
 
         # create the dwave-friendly Ising problem representation
-        self.dwave_Hz = utils.get_dwave_H(self.input_Hz)
+        self.dwave_Hz = utils.get_dwave_H(self.Hz)
         self.qubits = list(self.dwave_Hz[0].keys())
         self.couplers = list(self.dwave_Hz[1].keys())
 
         # create the networkx Ising problem representation for viewing
-        self.graph_Hz = utils.get_networkx_H(self.input_Hz)
+        self.graph_Hz = utils.get_networkx_H(self.Hz)
 
         # create the numeric Hamiltonian amenable to QuTip operations
-        num_H = utils.get_numeric_H(self.input_Hz)
+        num_H = utils.get_numeric_H(self.Hz)
         self.num_Hz = num_H[0]
         self.num_Hx = num_H[1]
 
@@ -48,10 +48,10 @@ class IsingH():
                 self.processor_data = utils.loadAandB(AandBfile)
             
     def __str__(self):
-        return str(self.input_Hz)
+        return str(self.Hz)
 
     def __getitem__(self, idx):
-        return self.input_Hz[idx]
+        return self.Hz[idx]
 
     def visualize(self):
         """returns networkx graph visualization of connectivity."""
@@ -239,4 +239,4 @@ class IsingH():
     def dwave_anneal(self, annealing_params, testrun = False):
         """Runs problems on D-Wave."""
         ##TODO write this...
-        return self.input_Hz
+        return self.Hz

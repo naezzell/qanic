@@ -1,7 +1,6 @@
 # imports
 import numpy as np
 
-
 def ml_measurement(qubits, probs, subset=None):
     """
     Finds the most likely measurement outcome predicted from discrete probability

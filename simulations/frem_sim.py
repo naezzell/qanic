@@ -11,7 +11,7 @@ import pandas as pd
 sys.path.append("..")
 import qanic as qa
 
-def frem_sim(H, annparams, m_scheme, part_gen):
+def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing as compared to standard forward and reverse annealing.
 
@@ -24,7 +24,8 @@ def frem_sim(H, annparams, m_scheme, part_gen):
         frFTf - (float) frem F-part f annealing time
         frRTf - (float) frem R-part f annealing time
         frRTr - (float) frem R-part r annealing time
-        s - (float) depth of reverse anneal
+        sp - (float) depth of reverse anneal
+        disc - (float) discretization (i.e. accuracy)
     * m_scheme - a function that specifies measurement scheme
         takes prob dist as input and resturns dict of {q0: state...}
     * part_gen - a generator that yields partitions of H; should yield data of the form
@@ -42,10 +43,11 @@ def frem_sim(H, annparams, m_scheme, part_gen):
     """
     # get annealing parameters and verify type
     foTf = annparams['foTf']
-    reparams = ['reTf', 'reTr', 's']
-    reTf, reTr, s = [annparams[key] for key in reparams]
+    reparams = ['reTf', 'reTr', 'sp']
+    reTf, reTr, sp = [annparams[key] for key in reparams]
     fremparams = ['frFTf', 'frRTf', 'frRTr']
     frFTf, frRTf, frRTr = [annparams[key] for key in fremparams]
+    disc = annparams.get('disc', .0001)
     
     # initialize (pre pandas) data list
     listdata = []
@@ -72,7 +74,7 @@ def frem_sim(H, annparams, m_scheme, part_gen):
         raise
 
     # perform numerical forward anneal
-    f_ann_params = {'t1': foTf, 'direction': 'f'}
+    f_ann_params = {'t1': foTf, 'direction': 'f', 'disc': disc}
     fstate = H.numeric_anneal(f_ann_params)
     fprobs = (fstate.conj()*fstate).real
     gs_fprobs = fprobs[nzidxs]
@@ -82,8 +84,8 @@ def frem_sim(H, annparams, m_scheme, part_gen):
 
     # perform reverse anneal with init state given by forward anneal
     init_state = m_scheme(H.qubits, fprobs)
-    r_ann_params = {'t1': reTf, 'direction': 'r', 't2': reTr, 's': s,
-                    'init_state': init_state}
+    r_ann_params = {'t1': reTf, 'direction': 'r', 't2': reTr, 'sp': sp,
+                    'init_state': init_state, 'disc': disc}
     rstate = H.numeric_anneal(r_ann_params)
     rprobs = (rstate.conj()*rstate).real
     gs_rprobs = rprobs[nzidxs]
@@ -100,9 +102,10 @@ def frem_sim(H, annparams, m_scheme, part_gen):
             crit_exists = True
 
         # perform the FREM anneal
-        f_ann_params = {'t1': frFTf}
-        r_ann_params = {'t1': frRTf, 'direction': 'r', 's': s,
-                        't2': frRTf, 'init_state': init_state}
+        f_ann_params = {'t1': frFTf, 'direction': 'f', 'disc': disc}
+        init_state = m_scheme(H.qubits, fprobs, part['Rqubits'])
+        r_ann_params = {'t1': frRTf, 'direction': 'r', 'sp': sp,
+                        't2': frRTf, 'init_state': init_state, 'disc': disc}
         fremstate = H.frem_anneal(f_ann_params, r_ann_params, part)
         frem_probs = (fremstate.conj()*fremstate).real 
         gs_fremprobs = frem_probs[nzidxs]
@@ -169,8 +172,8 @@ def frem_sim(H, annparams, m_scheme, part_gen):
     # set-up file names for raw data and summary data
     date = time.strftime("%dd%mm%Yy-%Hh%Mm%Ss")
     infostr = "H-{H}_date-{date}".format(H=H.kind, date=date)
-    summ_file = "summ_{}.txt".format(infostr)
-    raw_file = "raw_{}.csv".format(infostr)
+    summ_file = "{ddir}summ_{info}.txt".format(ddir=datadir, info=infostr)
+    raw_file = "{ddir}raw_{info}.csv".format(ddir=datadir, info=infostr)
 
     # dump raw pandas df to raw file
     df.to_csv(raw_file, index=False)
@@ -186,7 +189,8 @@ def frem_sim(H, annparams, m_scheme, part_gen):
         f.write("reTr: {}\n".format(reTr))
         f.write("frRTf: {}\n".format(frRTf))
         f.write("frRTr: {}\n".format(frRTr))
-        f.write("s: {}\n".format(s))
+        f.write("sp: {}\n".format(sp))
+        f.write("disc: {}\n".format(disc))
         f.write("measurement scheme: {}\n".format(m_scheme.__name__))
         f.write("partition scheme: {}\n".format(part_gen.__name__))
         f.write("\n")

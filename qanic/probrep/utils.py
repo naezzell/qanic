@@ -128,7 +128,7 @@ def make_numeric_schedule(ann_params={'t1': 1}):
     sp = ann_params.get('sp', 1)
     tp = ann_params.get('tp', 0)
     t2 = ann_params.get('t2', 0)
-    disc = ann_params.get('disc', 0.01)
+    disc = ann_params.get('disc', 0.0001)
     
     # turn discretization into samplerate multiplier and 'buffer' between changes
     buf = .001 * disc

@@ -1,25 +1,20 @@
 import sys
+import random
 from itertools import (chain, combinations)
-#from qanic.probrep.dictrep import DictRep
 
-
-def powerset(iterable):
-    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-    s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
-
-
-def all_R(H, critq='Unknown'):
+def all_parts(H, scheme, critq='Unknown'):
     """
-    This generates all possible R-favored partitions of a Hamiltonian in preparation for an
-    exhaustive FREM simulation.
+    This generates all possible R-favored partitions of a Hamiltonian
+    in preparation for an exhaustive FREM simulation.
 
     Inputs:
-    H - a DictRep Hamiltonian
-    critq - index (can be however you indexed your qubit in DictRep, so string or int or w.e.) of
-    a known 'critical' qubit
-    * if it's unclear which should be critical, leave as default value 'Unknown'
-    * if all qubits are equally as important, then the correct answer is None or False
+    H - an IsingH Hamiltonian
+    scheme - 'all_R', 'all_F' or 'random' to assign mixed couplers
+    critq - index of a known 'critical' qubit (can be str)
+    * if it's unclear which should be critical, leave as default 
+    value 'Unknown'
+    * if all qubits are equally as important, then the correct answer 
+    is None or False
 
     Outputs:
     (partition, critq_with_R, perRteam)
@@ -27,16 +22,15 @@ def all_R(H, critq='Unknown'):
         --> Rqubits is list containing which qubits belong to R parition
         --> HR is dictionary of reverse annealing (R team) Hamiltonian
         --> HF is dictionary of forward annealing (F team) Hamiltonian
-    * critq_with_R stores whether user-specified "critical" qubit of H is an element of HR
-    * perRteam gives percentage of mixed couplers (couplings between R and F) assigned to R
+    * critq_with_R stores whether user-specified "critical" qubit of
+    H is an element of HR
+    * perRteam gives percentage of mixed couplers assigned to R
     """
-    # the percent of mixed (M) couplers assigned to R team is 100 for R_all geneartor
-    perRteam = 100
-
-    # iterate over the powerset of possible qubit combinations (i.e. all partitions)
+    # iterate over the powerset of possible partitions
     for qsubset in powerset(H.qubits):
         Rqubits = list(qsubset)
-        # determine whether critical qubit (if applicable) is part of R partition
+        Fqubits = list(set(H.qubits) - set(qsubset))
+        # is critical qubit part part of R partition?
         if critq != 'Unknown' and critq is not None:
             critq_with_R = (critq in qsubset)
         else:
@@ -45,31 +39,181 @@ def all_R(H, critq='Unknown'):
         if len(qsubset) == 0 or len(qsubset) == len(H.qubits):
             continue
         else:
-            dictHR = {}
-            dictHF = {}
-            HFcouplers = H.couplers[::]
-            # iterate over the qubits
+            # assign couplers
+            coupler_info = assign_couplers(H, Rqubits, Fqubits, scheme)
+            dictHR, dictHF, perRteam = coupler_info
+            # assign qubits
             for q in H.qubits:
-                if q in qsubset:
+                # R team assignments
+                if q in Rqubits:
                     dictHR[(q, q)] = H[(q, q)]
                     dictHF[(q, q)] = 0
-                    # assign all couplers that contain q to 'R team'
-                    for c in H.couplers:
-                        if q in c:
-                            dictHR[c] = H[c]
-                            dictHF[c] = 0
-                            try:
-                                HFcouplers.remove(c)
-                            except ValueError:
-                                pass
                 else:
-                    # assign everything else to 'F team'
-                    dictHF[(q, q)] = H[(q, q)]
+                    # F team assignments
                     dictHR[(q, q)] = 0
-                    for c in HFcouplers:
-                        dictHF[c] = H[c]
-                        dictHR[c] = 0
+                    dictHF[(q, q)] = H[(q, q)]
 
         partition = {'HR': dictHR, 'HF': dictHF, 'Rqubits': Rqubits}
-
         yield (partition, perRteam, critq_with_R)
+
+def single_R_qubit(H, scheme, critq='Unknown'):
+    """
+    This generates all partitions where R-team has 1 qubit.
+
+    Inputs:
+    H - an IsingH Hamiltonian
+    scheme - 'all_R', 'all_F' or 'random' to assign mixed couplers
+    critq - index of a known 'critical' qubit (can be str)
+    * if it's unclear which should be critical, leave as default 
+    value 'Unknown'
+    * if all qubits are equally as important, then the correct answer 
+    is None or False
+
+    Outputs:
+    (partition, critq_with_R, perRteam)
+    * partition is a dictionary containing the Hamiltonian partition
+        --> Rqubits is list containing which qubits belong to R parition
+        --> HR is dictionary of reverse annealing (R team) Hamiltonian
+        --> HF is dictionary of forward annealing (F team) Hamiltonian
+    * critq_with_R stores whether user-specified "critical" qubit of
+    H is an element of HR
+    * perRteam gives percentage of mixed couplers assigned to R
+    """
+    # iterate over the powerset of possible partitions
+    for qubit in H.qubits:
+        Rqubits = [qubit]
+        Fqubits = list(set(H.qubits) - set(Rqubits))
+        # is critical qubit part part of R partition?
+        if critq != 'Unknown' and critq is not None:
+            critq_with_R = (critq in Rqubits)
+        else:
+            critq_with_R = critq
+            
+        # assign couplers
+        coupler_info = assign_couplers(H, Rqubits, Fqubits, scheme)
+        dictHR, dictHF, perRteam = coupler_info
+        # assign qubits
+        for q in H.qubits:
+            # R team assignments
+            if q in Rqubits:
+                dictHR[(q, q)] = H[(q, q)]
+                dictHF[(q, q)] = 0
+            else:
+                # F team assignments
+                dictHR[(q, q)] = 0
+                dictHF[(q, q)] = H[(q, q)]
+
+        partition = {'HR': dictHR, 'HF': dictHF, 'Rqubits': Rqubits}
+        yield (partition, perRteam, critq_with_R)
+
+def single_F_qubit(H, scheme, critq='Unknown'):
+    """
+    This generates all partitions where F-team has 1 qubit.
+
+    Inputs:
+    H - an IsingH Hamiltonian
+    scheme - 'all_R', 'all_F' or 'random' to assign mixed couplers
+    critq - index of a known 'critical' qubit (can be str)
+    * if it's unclear which should be critical, leave as default 
+    value 'Unknown'
+    * if all qubits are equally as important, then the correct answer 
+    is None or False
+
+    Outputs:
+    (partition, critq_with_R, perRteam)
+    * partition is a dictionary containing the Hamiltonian partition
+        --> Rqubits is list containing which qubits belong to R parition
+        --> HR is dictionary of reverse annealing (R team) Hamiltonian
+        --> HF is dictionary of forward annealing (F team) Hamiltonian
+    * critq_with_R stores whether user-specified "critical" qubit of
+    H is an element of HR
+    * perRteam gives percentage of mixed couplers assigned to R
+    """
+    # iterate over the powerset of possible partitions
+    for qubit in H.qubits:
+        Fqubits = [qubit]
+        Rqubits = list(set(H.qubits) - set(Fqubits))
+        # is critical qubit part part of R partition?
+        if critq != 'Unknown' and critq is not None:
+            critq_with_R = (critq in Rqubits)
+        else:
+            critq_with_R = critq
+            
+        # assign couplers
+        coupler_info = assign_couplers(H, Rqubits, Fqubits, scheme)
+        dictHR, dictHF, perRteam = coupler_info
+        # assign qubits
+        for q in H.qubits:
+            # R team assignments
+            if q in Rqubits:
+                dictHR[(q, q)] = H[(q, q)]
+                dictHF[(q, q)] = 0
+            else:
+                # F team assignments
+                dictHR[(q, q)] = 0
+                dictHF[(q, q)] = H[(q, q)]
+
+        partition = {'HR': dictHR, 'HF': dictHF, 'Rqubits': Rqubits}
+        yield (partition, perRteam, critq_with_R)
+        
+# ***************************************************************************
+# Internal Helper Functions
+# ***************************************************************************
+def assign_couplers(H, Rqubits, Fqubits, scheme):
+    """
+    Assigns a team (R or F) to each coupler
+
+    Inputs:
+    ------------------------------------------------------------
+    H.couplers - a dictionary containing all the couplings
+    Rqubits - a list containing all qubits on team R
+    Fqubits - a list containing all qubits on team F
+    scheme - specifies 'all_R', 'all_F', or 'random'
+
+    Output:
+    ------------------------------------------------------------
+    Outputs HR and HF coupler dictionaries in accordance with scheme.
+    HRcouplers = {(qi, qj): wij, ...}
+    HFcouplers = {(qi, qj): wij, ...}
+    perRteam - percernt of mixed partitions assigned to team R
+    """
+    HRcouplers = {}
+    HFcouplers = {}
+    MtoRTeam = 0
+    m_couplers = 0
+    for coupler, bias in H.Hz.items():
+        # if both qubits are in one team, assignment is trivial
+        if coupler[0] in Rqubits and coupler[1] in Rqubits:
+            HRcouplers[coupler] = bias
+            HFcouplers[coupler] = 0
+        elif coupler[0] in Fqubits and coupler[1] in Fqubits:
+            HRcouplers[coupler] = 0
+            HFcouplers[coupler] = bias
+        # otherwise, mixed coupler assigned by scheme
+        else:
+            m_couplers += 1
+            if scheme == 'all_R':
+                HRcouplers[coupler] = bias
+                HFcouplers[coupler] = 0
+                MtoRTeam += 1
+            elif scheme == 'all_F':
+                HRcouplers[coupler] = 0
+                HFcouplers[coupler] = bias
+            elif scheme == 'random':
+                if random.uniform(0, 1) > 0.5:
+                    HRcouplers[coupler] = bias
+                    HFcouplers[coupler] = 0
+                    MtoRTeam += 1
+                else:
+                    HRcouplers[coupler] = 0
+                    HFcouplers[coupler] = bias
+            else:
+                raise ValueError("scheme {} is not supported".format(scheme))
+
+    perRteam = (MtoRTeam / m_couplers) * 100
+    return (HRcouplers, HFcouplers, perRteam)
+
+def powerset(iterable):
+    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
