@@ -12,10 +12,14 @@ from . import utils
 class IsingH():
     """Class that performs common protocols on an Ising Hamiltonian."""
 
-    def __init__(self, Hz, AandBfile='default'):
+    def __init__(self, Hz, kind='unspecified', AandBfile='default'):
         """
-        Input: hamiltonian in the form of a dictionary
-        #TODO add support for other input types
+        Instatiates an Ising Hamiltonian.
+
+        Inputs
+        Hz - a dictionary input (TODO: add more type support)
+        kind - a short string description of Hamiltonian (e.g. 'K3')
+        AandBfile - location of annealing A and B functions
 
         Allows analysis of Ising Hamiltonians via numerical diagonalization,
         numerical annealing, and D-Wave annealing.
@@ -25,8 +29,8 @@ class IsingH():
         else:
             s_types = "dict"
             c_type = str(type(Hz))
-            print("{} is not in list of supported types: {}".format(s_types ,c_type))
-
+            print("{} is not in list of supported types: {}".format(s_types ,c_type)) 
+        self.kind = kind
         # create the dwave-friendly Ising problem representation
         self.dwave_Hz = utils.get_dwave_H(self.Hz)
         self.qubits = list(self.dwave_Hz[0].keys())
@@ -164,13 +168,12 @@ class IsingH():
             init_state = qt.tensor(*statelist)
         else:
             statelist = []
-            xstate = (qt.ket('0') - qt.ket('1')).unit()
             for qubit in self.qubits:
                 if qubit in init_state:
                     zstate = qt.ket(str(init_state[qubit]))
                     statelist.append(zstate)
                 else:
-                    statelist.append(xstate)
+                    raise ValueError("init_state does not specify state of qubit {}".format(qubit))
             init_state = qt.tensor(*statelist)
             
         # peform a numerical anneal on H (sch[0] is list of discrete times)
@@ -178,7 +181,9 @@ class IsingH():
 
         # only output final result if history set to False
         if history is False:
-            return utils.qto_to_npa(results.states[-1])
+            state = utils.qto_to_npa(results.states[-1])
+            probs = (state.conj()*state).real
+            return probs
         return results
 
     def frem_anneal(self, f_ann_params, r_ann_params, partition, history=False):
@@ -196,8 +201,9 @@ class IsingH():
         ---------
         final_state - numpy array containing amplitudes of wave-functions with canonical tensor-product order 
         """
-        # read init states of f/r annealing parameters and default to None
-        r_init_state = r_ann_params.get('init_state', None)
+        # get init state of reverse anneal and slim down to those in team R
+        ris = r_ann_params.get('init_state')
+        Rstate = {q: ris[q] for q in ris if q in partition['Rqubits']}
 
         # add pause to forward anneal if it is shorter than reverse
         # TODO: make it possible to do the same for reverse
@@ -221,8 +227,8 @@ class IsingH():
         statelist = []
         xstate = (qt.ket('0') - qt.ket('1')).unit()
         for qubit in self.qubits:
-            if qubit in r_init_state:
-                zstate = qt.ket(str(r_init_state[qubit]))
+            if qubit in Rstate:
+                zstate = qt.ket(str(Rstate[qubit]))
                 statelist.append(zstate)
             else:
                 statelist.append(xstate)
@@ -233,7 +239,9 @@ class IsingH():
 
         # only output final result if history is set to False
         if history is False:
-            return utils.qto_to_npa(results.states[-1])
+            state = utils.qto_to_npa(results.states[-1])
+            probs = (state.conj()*state).real
+            return probs
         return results
         
     def dwave_anneal(self, annealing_params, testrun = False):
