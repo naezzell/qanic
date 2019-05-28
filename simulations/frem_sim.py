@@ -11,24 +11,19 @@ import pandas as pd
 sys.path.append("..")
 import qanic as qa
 
-def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
+def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
     """
-    Tests the efficacy of FREM (forward-reverse error mitigation) annealing as compared to standard forward and reverse annealing.
+    Tests the efficacy of FREM (forward-reverse error mitigation) annealing
+    compared to forward and reverse annealing.
 
     Arguments:
-    * H - an IsingH hamiltonian
-    * annparams - dictionary containing annealing parameters
-        foTf - (float) forward anneal annealing time
-        reTf - (float) reverse anneal forward annealing time
-        reTr - (float) reverse anneal reverse annealing time
-        frFTf - (float) frem F-part f annealing time
-        frRTf - (float) frem R-part f annealing time
-        frRTr - (float) frem R-part r annealing time
-        sp - (float) depth of reverse anneal
-        disc - (float) discretization (i.e. accuracy)
-    * m_scheme - a function that specifies measurement scheme
+    * H: IsingH--Hamiltonian to be annealed
+    * fsch: list--forward annealing schedule
+    * rsch: list--reverse annealing schedule
+    * fremsch: list--frem annealing schedule
+    * m_scheme: function--specifies measurement scheme
         takes prob dist as input and resturns dict of {q0: state...}
-    * part_gen - a generator that yields partitions of H; should yield data of the form
+    * part_gen: generator--yields partitions of H; should yield data of the form
         (partition, critq_with_R, perRteam)
     --partition is a dictionary containing the Hamiltonian partition
         --> Rqubits is list containing which qubits belong to R parition
@@ -41,14 +36,6 @@ def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
     * rawdata: contains inputs, correct ground-state, forward result, reverse result, and frem results
     * run summary: contains inputs, correct gs, forward result, reverse result, and frem summary/ comparisons
     """
-    # get annealing parameters and verify type
-    foTf = annparams['foTf']
-    reparams = ['reTf', 'reTr', 'sp']
-    reTf, reTr, sp = [annparams[key] for key in reparams]
-    fremparams = ['frFTf', 'frRTf', 'frRTr']
-    frFTf, frRTf, frRTr = [annparams[key] for key in fremparams]
-    disc = annparams.get('disc', .0001)
-    
     # initialize (pre pandas) data list
     listdata = []
 
@@ -74,9 +61,7 @@ def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
         raise
 
     # perform numerical forward anneal
-    f_ann_params = {'t1': foTf, 'direction': 'f', 'disc': disc}
-    fstate = H.numeric_anneal(f_ann_params)
-    fprobs = (fstate.conj()*fstate).real
+    fprobs = H.numeric_anneal(fsch, disc)
     gs_fprobs = fprobs[nzidxs]
     # save result
     dictdatum = {'method': 'f', 'pgs': sum(gs_fprobs), 'gs_dist': gs_fprobs, 'nRq': None, 'critq_R': None, 'pM_R': None}
@@ -84,10 +69,7 @@ def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
 
     # perform reverse anneal with init state given by forward anneal
     init_state = m_scheme(H.qubits, fprobs)
-    r_ann_params = {'t1': reTf, 'direction': 'r', 't2': reTr, 'sp': sp,
-                    'init_state': init_state, 'disc': disc}
-    rstate = H.numeric_anneal(r_ann_params)
-    rprobs = (rstate.conj()*rstate).real
+    rprobs = H.numeric_anneal(rsch, disc, init_state)
     gs_rprobs = rprobs[nzidxs]
     # save result
     dictdatum = {'method': 'r', 'pgs': sum(gs_rprobs), 'gs_dist': gs_rprobs, 'nRq': None, 'critq_R': None, 'pM_R': None}
@@ -98,16 +80,12 @@ def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
     crit_exists = False
     for partinfo in part_gen:
         part, perRteam, critqinR = partinfo
+        # could be None or 'Unknown', so we check if it is a bool
         if critqinR is True or critqinR is False:
             crit_exists = True
 
         # perform the FREM anneal
-        f_ann_params = {'t1': frFTf, 'direction': 'f', 'disc': disc}
-        init_state = m_scheme(H.qubits, fprobs, part['Rqubits'])
-        r_ann_params = {'t1': frRTf, 'direction': 'r', 'sp': sp,
-                        't2': frRTf, 'init_state': init_state, 'disc': disc}
-        fremstate = H.frem_anneal(f_ann_params, r_ann_params, part)
-        frem_probs = (fremstate.conj()*fremstate).real 
+        frem_probs = H.frem_anneal(fsch, rsch, init_state, part, disc)
         gs_fremprobs = frem_probs[nzidxs]
 
         # save data
@@ -184,13 +162,8 @@ def frem_sim(H, annparams, m_scheme, part_gen, datadir=''):
         f.write("---------------------------------------------------------\n")
         f.write("H kind: {}\n".format(H.kind))
         f.write("degeneracy: {}\n".format(ndegen))
-        f.write("foTf: {}\n".format(foTf))
-        f.write("reTf: {}\n".format(reTf))
-        f.write("reTr: {}\n".format(reTr))
-        f.write("frRTf: {}\n".format(frRTf))
-        f.write("frRTr: {}\n".format(frRTr))
-        f.write("sp: {}\n".format(sp))
-        f.write("disc: {}\n".format(disc))
+        f.write("fsch: {}\n".format(fsch))
+        f.write("rsch: {}\n".format(rsch))
         f.write("measurement scheme: {}\n".format(m_scheme.__name__))
         f.write("partition scheme: {}\n".format(part_gen.__name__))
         f.write("\n")

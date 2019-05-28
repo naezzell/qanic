@@ -125,23 +125,18 @@ class IsingH():
         gs = utils.gs_calculator(H1, etol, stol)['gs']
         return gs
     
-    def numeric_anneal(self, ann_params={}, history=False):
+    def numeric_anneal(self, sch, disc=0.0001, init_state=None, history=False):
         """
         Performs in-house (QuTiP based) numeric anneal.
 
         Input
         --------------------
-        --> ann_params--dict of annealing params as floats (default value)
-        *t1 (1): anneal length (in micro seconds) from s_init to sp
-        *direction (f): 'f' or 'r' for forward (s_init = 0) or reverse (s_init = 1)
-        *sp (1): intermediate s value (s-prime) reached after annealing for t1
-        *tp (0): duration of pause after reaching sp
-        *t2 (0): anneal length from sp to s_final = 1
-        *disc (0.01): discretization used between times
-        *init_state (None): initial state for anneal (forward or reverse)
-        None means calculate in here as ground-state of H(t=0).
-        --> history: True or False
-        returns full results if True and just final state if False
+        *usch: list -- [[t0, s0], [t1, s1], ..., [tn, sn]]
+        *disc (0.01): float -- discretization used between times
+        *init_state (None): dict -- maps qubits to up (1) or down (0)
+        None means calculate here as gs of Hx (for forward)
+        *history: bool, True means return all intermediate states
+        False returns only final probability vector
 
         Output
         --------------------
@@ -152,11 +147,8 @@ class IsingH():
         else:
             outputs-->QuTip result
         """
-        # set init state to None if not specified
-        init_state = ann_params.get('init_state', None)
-        
-        # create the anneal schedule (numeric schedule hosts defaults)
-        sch = utils.make_numeric_schedule(ann_params)
+        # create numeric anneal schedule
+        sch = utils.make_numeric_schedule(sch, disc)
         # interpolate A and B according to schedule
         sch_A, sch_B = utils.time_interpolation(sch, self.processor_data)
         # list H for schrodinger equation solver
@@ -186,42 +178,44 @@ class IsingH():
             return probs
         return results
 
-    def frem_anneal(self, f_ann_params, r_ann_params, partition, history=False):
+    def frem_anneal(self, fsch, rsch, rinit, partition, disc=0.0001, history=False):
         """
         Performs a numeric FREM anneal on H using QuTip.
 
-        inputs:
+        Inputs:
         ---------
-        f_ann_params - a dictionary containg forward annealing parameters (clear from numeric_anneal what these are)
-        r_ann_params - a dictionary containing reverse annealing parameters
-        partition - dictionary containing F-parition (HF), R-partition (HR), and Rqubits
-        {'HF': {HF part as dict}, 'HR': {HR part as dict}}
+        *fsch: list--forward annealing schedule [[t0, 0], ..., [tf, 1]]
+        *rsch: list--reverse annealing schedule [[t0, 1], ..., [tf, 1]]
+        *rinit: dict--initial state of R partition for reverse anneal
+        *partition: dict--contains F-parition (HF), R-partition (HR),
+        and Rqubits {'HF': {HF part}, 'HR': {HR part}, 'Rqubits': [list]}
+        *disc: float--discretization between times in numeric anneal
+        *history: bool--False final prob vector; True all intermediate states
 
-        outputs:
+        Outputs:
         ---------
-        final_state - numpy array containing amplitudes of wave-functions with canonical tensor-product order 
+        *final_state: numpy array--if history is True, then
+        contains wave function amps with tensor product ordering
+        else: contains sesolve output with all intermediate states
         """
-        # get init state of reverse anneal and slim down to those in team R
-        ris = r_ann_params.get('init_state')
-        Rstate = {q: ris[q] for q in ris if q in partition['Rqubits']}
-
-        # add pause to forward anneal if it is shorter than reverse
-        # TODO: make it possible to do the same for reverse
-        ft = f_ann_params.get('t1', 1) + f_ann_params.get('tp', 0) + f_ann_params.get('t2', 0)
-        rt = r_ann_params.get('t1', 1) + r_ann_params.get('tp', 0) + r_ann_params.get('t2', 0)
-        if ft < rt:
-            f_ann_params['tp'] = (rt - ft)
-        if ft > rt:
-            raise ValueError("Currently, having a forward anneal last longer than reverse is not supported.")
+        # slim down rinit to only those states relevant for R partition
+        Rstate = {q: rinit[q] for q in rinit if q in partition['Rqubits']}
+        # add pause to f/r schedule if it is shorter than the other
+        Tf = fsch[-1][0]; Tr = rsch[-1][0]; rdiff = Tr - Tf
+        if rdiff != 0:
+            if rdiff > 0:
+                fsch.append([Tf + rdiff, 1])
+            else:
+                rsch.append([Tr + (-1 * rdiff), 1])
         # prepare Hamiltonian/ weight function list for QuTip se solver
-        f_sch = utils.make_numeric_schedule(f_ann_params)
-        r_sch = utils.make_numeric_schedule(r_ann_params)
-        f_sch_A, f_sch_B = utils.time_interpolation(f_sch, self.processor_data)
-        r_sch_A, r_sch_B = utils.time_interpolation(r_sch, self.processor_data)        
+        fsch = utils.make_numeric_schedule(fsch, disc)
+        rsch = utils.make_numeric_schedule(rsch, disc)
+        fsch_A, fsch_B = utils.time_interpolation(fsch, self.processor_data)
+        rsch_A, rsch_B = utils.time_interpolation(rsch, self.processor_data)        
         # list H for schrodinger equation solver
         f_Hz, f_Hx = utils.get_numeric_H(partition['HF'])
         r_Hz, r_Hx = utils.get_numeric_H(partition['HR'])
-        listH = [[f_Hx, f_sch_A], [f_Hz, f_sch_B], [r_Hx, r_sch_A], [r_Hz, r_sch_B]]
+        listH = [[f_Hx, fsch_A], [f_Hz, fsch_B], [r_Hx, rsch_A], [r_Hz, rsch_B]]
 
         # create the initial state vector for the FREM anneal
         statelist = []
@@ -235,7 +229,7 @@ class IsingH():
         init_state = qt.tensor(*statelist)
 
         # run the numerical simulation and extract the final state
-        results = qt.sesolve(listH, init_state, f_sch[0])
+        results = qt.sesolve(listH, init_state, fsch[0])
 
         # only output final result if history is set to False
         if history is False:

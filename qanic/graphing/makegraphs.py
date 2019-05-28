@@ -1,9 +1,29 @@
 # imports
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
+
+def get_frem_data(directory, xaxis, yaxis):
+    """
+    Looks through all files in 'directory' and creates two lists containing
+    the 'xaxis' and 'yaxis' data.
+
+    Inputs
+    --------------------------------------------------
+    directory: string -- directory containg frem_sim files
+    cqubit: Bool -- True if contains critical qubit; false otherwise
+    """
+    # get list of all files in directory
+    files = next(os.walk(directory))[2]
+    filepaths = [os.path.join(directory, fn) for fn in files]
+
+    # open each file and extract the data
+    for f in files:
+        with open(f) as summfile:
+            break
 
 def get_state_plot(data, figsize=(12, 8), filename=None, title='Distribution of Final States'):
     ncount = len(data)
