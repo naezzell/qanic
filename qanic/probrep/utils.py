@@ -102,115 +102,37 @@ def make_dwave_schedule(t1 = 20, direction = 'f', sp = 1, tp = 0, t2 = 0):
 
     return ann_sch
 
-def make_numeric_schedule(ann_params={'t1': 1}):
+def make_numeric_schedule(sch, disc=0.0001):
     """
-    Creates an anneal_schdule to be used for numerical calculatins with QuTip.
-    Returns times and svals associated with each time [times, svals]
-    for each (discrete) unit of time during the anneal. 
-
-    Input Arguments (all floats)
-    --------------------
-    *ann_params = {'t1': t1, ...}
-    t1: anneal length (in micro seconds) from s_init to sp
-    direction: 'f' or 'r' for forward (s_init = 0) or reverse (s_init = 1)
-    sp: intermediate s value (s-prime) reached after annealing for t1
-    tp: duration of pause after reaching sp
-    t2: anneal length from sp to s_final = 1
-    disc: discretization used between times 
+    Creates a discretized version of anneal tuple anneal schedule
+    
+    Inputs
+    --------------------------------------------------
+    sch: list of the form [[t0, s0], ..., [tf, sf]]
+    disc: float, specifies distance between sampled points
 
     Output
-    --------------------
-    anneal_schedule: a list of lists of the form [[t0, s0], [t1, s1], ... [tn, 1]]
+    --------------------------------------------------
+    dsch: list of lists--[[t00, t01, ..., t0n, ..., tfn], [s00, ..., s0n]],
+    first list is discretized times; second is discretized svals
     """
-    # pre-process arguments, setting to default value if not present
-    t1 = ann_params.get('t1', 1)
-    direction = ann_params.get('direction', 'f')
-    sp = ann_params.get('sp', 1)
-    tp = ann_params.get('tp', 0)
-    t2 = ann_params.get('t2', 0)
-    disc = ann_params.get('disc', 0.0001)
-    
-    # turn discretization into samplerate multiplier and 'buffer' between changes
-    buf = .001 * disc
+    csch = sch[::] # copy prevents pop from mutating input
+    dsch = [[], []]
+    # assert (len(sch) >= 2) ("sch too short. Needs at least start/end.")
+    t0, s0 = csch.pop(0)
+    for ele in csch:
+        t, s = ele
+        samplerate = int(np.ceil((t - t0) / disc)) + 1
+        times = list(np.linspace(t0, t, samplerate))
+        svals = list(np.linspace(s0, s, samplerate))
+        dsch[0].append(times)
+        dsch[1].append(svals)
+        t0, s0 = (t + disc, s)
 
-    if direction.lower()[0] == 'f':
-        # if sp = 1, create a standard forward anneal for t1
-        if sp == 1:
-            # determine slope of anneal
-            ma = sp / t1
+    dsch[0] = list(itertools.chain.from_iterable(dsch[0]))
+    dsch[1] = list(itertools.chain.from_iterable(dsch[1]))
+    return dsch
 
-            # create a list of times 0, disc, 2*disc, ..., t1
-            t = np.linspace(0, t1, int(t1 / disc) + 1)
-
-            # create linear s(t) function
-            sfunc = ma * t
-
-        # if no pause present, anneal forward for t1 to sa then quench for t2 to s=1
-        elif tp == 0:
-            # determine slopes and y-intercept (bq) to create piece-wise function
-            ma = sp / t1
-            mq = (1 - sp) / t2
-            bq = (sp * (t1 + t2) - t1) / t2
-
-            # create a list of times where sampling for anneal/ quench proportional to time there
-            t = reduce(np.union1d, (np.linspace(0, t1, int(t1 / disc) + 1),
-                                    np.linspace(t1 + buf, t1 + t2, int((t1 + t2) / disc) + 1)))
-
-            # create a piece-wise-linear (PWL) s(t) function defined over t values
-            sfunc = np.piecewise(t, [t <= t1, (t1 < t) & (t <= t1 + t2)],
-                                [lambda t: ma * t, lambda t: bq + mq * t])
-
-        # otherwise, forward anneal, pause, then quench
-        else:
-            # determine slopes and y-intercept (bq) to create piece-wise function
-            ma = sp / t1
-            mq = (1 - sp) / t2
-            bq = (sp * (t1 + tp + t2) - (t1 + tp)) / t2
-
-            # create a list of times with samplerate elements from 0 and T = t1 + tp + t2
-            t = reduce(np.union1d, (np.linspace(0, t1, int(t1 / disc) + 1),
-                                    np.linspace(t1 + buf, t1 + tp, int((t1 + tp) / disc) + 1),
-                                    np.linspace(t1 + tp + buf, t1 + tp + t2, int((t1 +tp + t2) / disc) + 1)))
-
-            # create a piece-wise-linear (PWL) s(t) function defined over t values
-            sfunc = np.piecewise(t, [t <= t1, (t1 < t) & (t <= t1 + tp),(t1 + tp < t) & (t <= t1 +tp + t2)],
-                                 [lambda t: ma * t, lambda t: sp, lambda t: bq + mq * t])
-
-    elif direction.lower()[0] == 'r':
-        # if no pause, do standard 'reverse' anneal
-        if tp == 0:
-            # determine slopes and y-intercept (bq) to create piece-wise function
-            ma = (sp - 1) / t1
-            ba = 1
-            mq = (1 - sp) / t2
-            bq = (sp * (t1 + t2) - t1) / t2
-
-            # create a list of times where sampling for anneal/ quench proportional to time there
-            t = reduce(np.union1d, (np.linspace(0, t1, int(t1/disc) + 1),
-                                    np.linspace(t1 + buf, t1 + t2, int((t1+t2)/ disc) + 1)))
-
-            # create a piece-wise-linear (PWL) s(t) function defined over t values
-            sfunc = np.piecewise(t, [t <= t1, (t1 < t) & (t <= t1 + t2)],
-                                [lambda t: ba + ma * t, lambda t: bq + mq * t])
-
-        # otherwise, include pause
-        else:
-            # determine slopes and y-intercept (bq) to create piece-wise function
-            ma = (sp - 1) / t1
-            ba = 1
-            mq = (1 - sp) / t2
-            bq = (sp * (t1 + tp + t2) - (t1 + tp)) / t2
-
-            # create a list of times with samplerate elements from 0 and T = t1 + tp + t2
-            t = reduce(np.union1d, (np.linspace(0, t1, int(t1 / disc) + 1),
-                                    np.linspace(t1 + buf, t1 + tp, int((t1 + tp) / disc) + 1),
-                                    np.linspace(t1 + tp + buf, t1 + tp + t2, int((t1 + tp + t2) / disc) + 1)))
-
-            # create a piece-wise-linear (PWL) s(t) function defined over t values
-            sfunc = np.piecewise(t, [t <= t1, (t1 < t) & (t <= t1 + tp),(t1 + tp < t) & (t <= t1 + tp + t2)],
-                                 [lambda t:ba + ma * t, lambda t: sp, lambda t: bq + mq * t])
-
-    return [t, sfunc]
 
 def loadAandB(file="/home/nic/inputdata/processor_annealing_schedule_DW_2000Q_2_June2018.csv"):
     """
