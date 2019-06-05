@@ -50,6 +50,35 @@ def get_networkx_H(isingH):
     if isinstance(isingH, dict):
         return dict_to_networkx(isingH)
 
+def get_frem_Hs(qubits, part):
+    """
+    Turns input H and partition into valid
+    QuTip Hx and Hz for both F and R partition.
+    Input: isingH Hamiltonian and part(ition) dictionary
+    Output: (HFx, HFz, HRx, HRz)
+    """
+    num_q = len(qubits)
+    Rqubits = part['Rqubits']
+    HF = part['HF']
+    HFx = qt.tensor(*[qt.qzero(2) for n in range(num_q)])
+    HFz = HFx.copy()
+    HR = part['HR']
+    HRx = HFx.copy()
+    HRz = HFx.copy()
+    for key in HR.keys():
+        if key[0] == key[1]:
+            if key[0] in Rqubits:
+                HRx += nqubit_1pauli(qt.sigmax(), key[0], num_q)
+                HRz += HR[key] * nqubit_1pauli(qt.sigmaz(), key[0], num_q)
+            else:
+                HFx += nqubit_1pauli(qt.sigmax(), key[0], num_q)
+                HFz += HF[key] * nqubit_1pauli(qt.sigmaz(), key[0], num_q)
+        else:
+            HRz += HR[key] * nqubit_2pauli(qt.sigmaz(), qt.sigmaz(), key[0], key[1], num_q)
+            HFz += HF[key] * nqubit_2pauli(qt.sigmaz(), qt.sigmaz(), key[0], key[1], num_q)
+            
+    return (HFx, HFz, HRx, HRz)
+
 # *****************************************************************
 #           Anneal Schedule Utilities
 # *****************************************************************
@@ -132,6 +161,22 @@ def make_numeric_schedule(sch, disc=0.0001):
     dsch[0] = list(itertools.chain.from_iterable(dsch[0]))
     dsch[1] = list(itertools.chain.from_iterable(dsch[1]))
     return dsch
+
+def make_FREM_init_state(HRinit, Rqubits):
+    """
+    Creates initial state for FREM annealing, i.e., project HRinit onto R
+    partition and give (|0> - |1>)/Sqrt(2) superposition to HF qubits.
+    
+    Input
+    --------------------------------------------------
+    HRinit: qutip.Qojb--initial state of HR partition
+    Rqubits: list--list of qubits in the R partition
+
+    Output
+    --------------------------------------------------
+    state: qutip.Qojb--initial state of FREM anneal
+    """
+    return 
 
 
 def loadAandB(file="/home/nic/inputdata/processor_annealing_schedule_DW_2000Q_2_June2018.csv"):

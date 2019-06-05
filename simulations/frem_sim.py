@@ -1,17 +1,12 @@
 """FREM simulation protocol."""
 # standard libarary imports
-import sys
 import time
 
 # common library imports 
 import numpy as np
 import pandas as pd
 
-# qanic library functions
-sys.path.append("..")
-import qanic as qa
-
-def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
+def frem_sim(H, fsch, rsch, r_scheme, part_gen, frem_scheme, disc=0.0001, datadir=''):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing
     compared to forward and reverse annealing.
@@ -20,9 +15,7 @@ def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
     * H: IsingH--Hamiltonian to be annealed
     * fsch: list--forward annealing schedule
     * rsch: list--reverse annealing schedule
-    * fremsch: list--frem annealing schedule
-    * m_scheme: function--specifies measurement scheme
-        takes prob dist as input and resturns dict of {q0: state...}
+    * r_scheme: function--defines how to get init state for reverse anneal
     * part_gen: generator--yields partitions of H; should yield data of the form
         (partition, critq_with_R, perRteam)
     --partition is a dictionary containing the Hamiltonian partition
@@ -31,6 +24,9 @@ def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
         --> HF is dictionary of forward annealing (F team) Hamiltonian
     --critq_with_R stores whether user-specified "critical" qubit of H is an element of HR
     --perRteam gives percentage of mixed couplers (couplings between R and F) assigned to R
+    * frem_scheme: function--scheme for initializing R parition init state
+    * disc: float--discretization of time in annealing schedules
+    * datadir: str--specification of directory to place the data in
 
     Outputs:
     * rawdata: contains inputs, correct ground-state, forward result, reverse result, and frem results
@@ -68,7 +64,7 @@ def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
     listdata.append(dictdatum)
 
     # perform reverse anneal with init state given by forward anneal
-    init_state = m_scheme(H.qubits, fprobs)
+    init_state = r_scheme(H, fprobs)
     rprobs = H.numeric_anneal(rsch, disc, init_state)
     gs_rprobs = rprobs[nzidxs]
     # save result
@@ -85,7 +81,8 @@ def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
             crit_exists = True
 
         # perform the FREM anneal
-        frem_probs = H.frem_anneal(fsch, rsch, init_state, part, disc)
+        R_init = frem_scheme(part['HR'], part['Rqubits'])
+        frem_probs = H.frem_anneal(fsch, rsch, R_init, part, disc)
         gs_fremprobs = frem_probs[nzidxs]
 
         # save data
@@ -108,6 +105,8 @@ def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
     bf_pgs = f_run['pgs'].max()
     br_pgs = r_run['pgs'].max()
     bfrem_pgs = frem_runs['pgs'].max()
+    # num qubits in best partition
+    nq_bp = df.iloc[frem_runs['pgs'].idxmax()]['nRq']
     # get % frem better than forward/reverse
     btf_runs = frem_runs[frem_runs.pgs > bf_pgs]
     btr_runs = frem_runs[frem_runs.pgs > br_pgs]
@@ -164,14 +163,17 @@ def frem_sim(H, fsch, rsch, m_scheme, part_gen, disc=0.0001, datadir=''):
         f.write("degeneracy: {}\n".format(ndegen))
         f.write("fsch: {}\n".format(fsch))
         f.write("rsch: {}\n".format(rsch))
-        f.write("measurement scheme: {}\n".format(m_scheme.__name__))
+        f.write("disc: {}\n".format(disc))
+        f.write("reverse init state scheme: {}\n".format(r_scheme.__name__))
         f.write("partition scheme: {}\n".format(part_gen.__name__))
+        f.write("frem init state scheme: {}\n".format(frem_scheme.__name__))
         f.write("\n")
         f.write("Bulk Results\n")
         f.write("---------------------------------------------------------\n")
         f.write("forward gs prob: {}\n".format(bf_pgs))
         f.write("reverse gs prob: {}\n".format(br_pgs))
         f.write("best frem gs prob: {}\n".format(bfrem_pgs))
+        f.write("part size of best frem: {}\n".format(nq_bp))
         f.write("number of frem partitions tried: {}\n".format(numpar))
         f.write("avg frem gs prob: {}\n".format(avgfrem_pgs))
         f.write("percent better than forward: {}\n".format(p_btf))

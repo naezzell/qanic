@@ -1,7 +1,4 @@
 """Ising Hamiltonian class implementation"""
-# useful python libraries
-import math
-
 # useful external python packages
 import networkx as nx
 import qutip as qt
@@ -158,12 +155,12 @@ class IsingH():
             xstate = (qt.ket('0') - qt.ket('1')).unit()
             statelist = [xstate for i in range(len(self.qubits))]
             init_state = qt.tensor(*statelist)
+
         else:
             statelist = []
             for qubit in self.qubits:
                 if qubit in init_state:
-                    zstate = qt.ket(str(init_state[qubit]))
-                    statelist.append(zstate)
+                    statelist.append(init_state[qubit])
                 else:
                     raise ValueError("init_state does not specify state of qubit {}".format(qubit))
             init_state = qt.tensor(*statelist)
@@ -186,7 +183,7 @@ class IsingH():
         ---------
         *fsch: list--forward annealing schedule [[t0, 0], ..., [tf, 1]]
         *rsch: list--reverse annealing schedule [[t0, 1], ..., [tf, 1]]
-        *rinit: dict--initial state of R partition for reverse anneal
+        *rinit: dict--initial state of HR
         *partition: dict--contains F-parition (HF), R-partition (HR),
         and Rqubits {'HF': {HF part}, 'HR': {HR part}, 'Rqubits': [list]}
         *disc: float--discretization between times in numeric anneal
@@ -201,7 +198,9 @@ class IsingH():
         # slim down rinit to only those states relevant for R partition
         Rstate = {q: rinit[q] for q in rinit if q in partition['Rqubits']}
         # add pause to f/r schedule if it is shorter than the other
-        Tf = fsch[-1][0]; Tr = rsch[-1][0]; rdiff = Tr - Tf
+        Tf = fsch[-1][0]
+        Tr = rsch[-1][0]
+        rdiff = Tr - Tf
         if rdiff != 0:
             if rdiff > 0:
                 fsch.append([Tf + rdiff, 1])
@@ -213,8 +212,7 @@ class IsingH():
         fsch_A, fsch_B = utils.time_interpolation(fsch, self.processor_data)
         rsch_A, rsch_B = utils.time_interpolation(rsch, self.processor_data)        
         # list H for schrodinger equation solver
-        f_Hz, f_Hx = utils.get_numeric_H(partition['HF'])
-        r_Hz, r_Hx = utils.get_numeric_H(partition['HR'])
+        f_Hx, f_Hz, r_Hx, r_Hz = utils.get_frem_Hs(self.qubits, partition)
         listH = [[f_Hx, fsch_A], [f_Hz, fsch_B], [r_Hx, rsch_A], [r_Hz, rsch_B]]
 
         # create the initial state vector for the FREM anneal
@@ -222,8 +220,7 @@ class IsingH():
         xstate = (qt.ket('0') - qt.ket('1')).unit()
         for qubit in self.qubits:
             if qubit in Rstate:
-                zstate = qt.ket(str(Rstate[qubit]))
-                statelist.append(zstate)
+                statelist.append(Rstate[qubit])
             else:
                 statelist.append(xstate)
         init_state = qt.tensor(*statelist)
