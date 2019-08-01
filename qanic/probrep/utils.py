@@ -12,8 +12,9 @@ from scipy.stats import entropy
 import pandas as pd
 import networkx as nx
 
-# OCEAN and QuTip imports
-from dwave.system.samplers import DWaveSampler
+# QuTip imports
+# CURRENTLY DEPRECATED IMPORT
+#from dwave.system.samplers import DWaveSampler
 import qutip as qt
 import qutip.operators as qto
 
@@ -100,8 +101,13 @@ def make_dwave_schedule(t1 = 20, direction = 'f', sp = 1, tp = 0, t2 = 0):
     anneal_schedule: a list of lists of the form [[ti, si], [t1, s1], ... [tf, 1]]
     """
     # get DWave sampler as set-up in dwave config file and save relevant properites
-    sampler = DWaveSampler()
-    mint, maxt = sampler.properties["annealing_time_range"]
+    # CURRENTLY DEPRECATED METHODS
+    #sampler = DWaveSampler()
+    #mint, maxt = sampler.properties["annealing_time_range"]
+
+    # TODO: Fix this
+    # hard-coded for now
+    mint, maxt = 1, 2000
 
     # first, ensure that quench slope is within chip bounds
     #if t2 != 0 and t2 < mint:
@@ -300,18 +306,19 @@ def dict_to_qutip(dictH):
     in the process to avoid redundant function calls.
     """
     # make useful operators
-    sigmaz = qto.sigmaz()
+    X = qto.sigmax()
+    Z = qto.sigmaz()
     nqbits = len([key for key in dictH.keys() if key[0] == key[1]])
-    Hx = sum([nqubit_1pauli(qto.sigmax(), m, nqbits) for m in range(nqbits)])
+    Hx = sum([nqubit_1pauli(X, m, nqbits) for m in range(nqbits)])
     
     zeros = [qto.qzero(2) for m in range(nqbits)]
     Hz = qt.tensor(*zeros)
 
     for key, value in dictH.items():
         if key[0] == key[1]:
-            Hz += value*nqubit_1pauli(sigmaz, key[0], nqbits)
+            Hz += value*nqubit_1pauli(Z, key[0], nqbits)
         else:
-            Hz += value*nqubit_2pauli(sigmaz, sigmaz, key[0], key[1], nqbits)
+            Hz += value*nqubit_2pauli(Z, Z, key[0], key[1], nqbits)
 
     return [Hz, Hx]
 
