@@ -14,13 +14,18 @@ sys.path.append("..")
 import qanic as qa
 from qanic.numerics.hamgen import sidonKn
 
-def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, filename, datadir = '', Htrials=1, itrials=1, store_raw=False):
+# number of trials needed for 95% confidence on 5% interval
+ss95_5 = {3: 23, 4: 43, 5: 66, 6: 92, 7: 117,
+               8: 142, 9: 165, 10: 186}
+
+def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing
     compared to forward and reverse annealing.
     """
-    ntrials = (len(Hsizes) * len(Tvals) * len(svals) * len(discs) *
-               Htrials * itrials)
+    ntrials = 0
+    for n in Hsizes:
+        ntrials += (len(Tvals) * len(svals) * len(discs) * Htrials[n] * itrials)
     
     # add input/output datasets to hdf5 file
     with h5py.File(filename, 'w') as f:
@@ -50,16 +55,22 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
         og.create_dataset('avgfrem_probs', (ntrials,), dtype='f')
         og.create_dataset('p_btf', (ntrials,), dtype='f')
         og.create_dataset('p_btr', (ntrials,), dtype='f')
-        #TODO: add critical qubit datasets that take variable type
+        if profile:
+            og.create_dataset('rtime', (ntrials,), dtype='f')
+            #og.create_dataset('pmem', (ntrials,), dtype='f')
+    #TODO: add critical qubit datasets that take variable type
     k_loop = 0
     for n in Hsizes:
-        for j in range(Htrials):
-            # create a sidonKn H with n qubits
-            H = qa.IsingH(sidonKn(n, hbool))
+        for j in range(Htrials[n]):
+            dictH,_ = sidonKn(n, hbool)
+            H = qa.IsingH(dictH)
             # generate the partitions of H
             part_list = list(part_scheme(H, 'all_F'))
             # cartesian product over annealing parameters
             for annparams in itertools.product(*[Tvals, svals, discs]):
+                if profile:
+                    tic = time.perf_counter()
+    
                 T, sp, disc = annparams
                 # create the anneal schedules
                 fsch = [[0, 0], [T, 1]]
@@ -69,7 +80,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                 listdata = []
 
                 # diagonlize unless input wrong or uses too much memory
-                try:
+                try:    
                     gsinfo = H.get_Hz_gs()
                     gsprobs = (gsinfo['gs'].conj()*gsinfo['gs']).real
                     ndegen = gsinfo['degen']
@@ -207,6 +218,10 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                         f['Outputs/avgfrem_probs'][k_loop] = avgfrem_pgs
                         f['Outputs/p_btf'][k_loop] = p_btf
                         f['Outputs/p_btr'][k_loop] = p_btr
+                        if profile:
+                            toc = time.perf_counter()
+                            rtime = toc - tic
+                            f['Outputs/rtime'][k_loop] = rtime
 
                     k_loop += 1
 

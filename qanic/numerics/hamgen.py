@@ -1,26 +1,5 @@
 import random
-
-def sidonCBP(n, sidonh = False):
-    """
-    Creates a complete bipartite graph Kn,n with random sidon J couplings.
-    Can also put random sidon h couplings if desired, but default value for h is 0.
-    """
-    sidon = [-1, -19/28, -13/28, -8/28, 8/28, 13/28, 19/28, 1]
-    H = {}
-    for n1 in range(n):
-        if sidonh is True:
-            H[(n1, n1)] = random.choice(sidon)
-        else:
-            H[(n1, n1)] = 0
-
-        for n2 in range(n, 2*n):
-            H[(n1, n2)] = random.choice(sidon)
-            if sidonh is True:
-                H[(n2, n2)] = random.choice(sidon)
-            else:
-                H[(n2, n2)] = 0
-
-    return H
+import scipy.stats
 
 def uniformKn(n, low=-1, high=1, randomh = False):
     """
@@ -57,7 +36,13 @@ def sidonKn(n, sidonh = False):
         for n2 in range(n1+1, n):
             H[(n1, n2)] = random.choice(sidon)
 
-    return H
+    edge_count = (n * (n - 1)) / 2
+    if sidonh is True:
+        class_size = edge_count * n * len(sidon)
+    else:
+        class_size = edge_count * len(sidon)
+
+    return H, class_size
 
 def degenKn(n):
     """
@@ -74,3 +59,17 @@ def degenKn(n):
             H[(n1, n2)] = 1
 
     return H
+
+def sample_size(n, i=5, c=95):
+    """
+    Determines necessary sample size to estimate property within an
+    interval of i% with c% confidence given a population size of n.
+
+    Inputs
+    -------------------------
+    n: int -- population size
+    i: float -- interval precision desired (percentage)
+    c: float -- confidence level desired (percentage)
+    """
+    #TODO: READ ABOUT THIS IN ORDER TO DO IT CORRECTLY
+    return
