@@ -33,7 +33,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
         ig = f.create_group('Inputs')
         ig.attrs['Mixed_Couplings'] = 'Forward'
         ig.attrs['F_Sch_Form'] = '[[0, 0], [T, 1]]'
-        ig.attrs['R_Sch_Form'] = '[[0, 0], [T/2, s], [T, 1]]'
+        ig.attrs['R_Sch_Form'] = '[[0, 1], [T/2, s], [T, 1]]'
         if hbool is True:
             ig.attrs['H_kind'] = 'SKn couplings and h values'
         else:
@@ -74,7 +74,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                 T, sp, disc = annparams
                 # create the anneal schedules
                 fsch = [[0, 0], [T, 1]]
-                rsch = [[0, 0], [T / 2, sp], [T, 1]]
+                rsch = [[0, 1], [T / 2, sp], [T, 1]]
 
                 # init data container for each sim
                 listdata = []
