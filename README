@@ -1,38 +1,18 @@
-In short, this is a quantum annealing (QA) repo. It contains
-various code that I have found useful in my own QA research starting in Summer
-2018 at Oak Ridge National Lab and continuing on into the present at my under-
-grad instituion, Mississippi State University. It's purpose/ functionaity is
-best understood by discussing it in four parts: probrep, dwave, numerics, and
-simuatlions.
+This contains quantum annealing (QA) code that I have used in my research
+of forward-reverse error mitigation (FREM) annealing at Mississippi State
+with Dr. Mark Novotny.
 
-ProbRep (and really, DictRep)
-==============================
-Since people from different backgrounds are all interested in QA, they tend to
-encode their problems differently. The idea behind the ProbRep class is to
-capture this notion in an abstract base class, or ABC for short. As an ABC,
-this class ensures that any valid encoding implementation has support for all
-the operations a researcher would be interested in, i.e. running the problem
-on D-Wave, performing numerical diagonzlation, etc...
+The basic idea of FREM can be understood in Examples/frem.py. This also goes
+into detail about the underlying algorithm. The basic workflow of our
+simulations can be understood in Examples/workflow.py and in
+Simulations/sidon_frem_sim.py. 
 
-DictRep is a bona-fide class I've designed to handle my own encoding scheme:
-Hamiltonians as dictionaries. It contains a large number of methods that I've
-designed as they were needed. Truthfully, it could use some organization...
+If you take a look at the commit history, you will see that this code has
+undergone many drastic overhauls. This has been for many reasons. At first,
+this code was intended to provide a means to run D-Wave experiments and
+numerical experiments seamlessly on a single Hamiltonian. However, this
+turned out to not work so well due to some conflicts between QuTiP and
+D-Wave's Ocean, and since FREM was a more promising research direction,
+I ultimately decided to abandon the D-Wave portion for now.
 
-Dwave
-==============================
-This contains utilities for connecting to D-Wave and running problems on
-D-Wave chips. For example, this has a utility for creating D-Wave anneal
-schedules with a simpler input syntax than that desired by their API.
-
-Numerics
-==============================
-This contains a bunch of code to allow for numeric computations such as
-diagonalization, numeric quantum annealing that emulates the D-wave process,
-and more.
-
-Simulations
-==============================
-Using the Dwave and Numerics utilities, it is often natural to design
-various simulations/ experiments to test ideas. For example, one such idea
-is forward-reverse error-mitigation (FREM) annealing that I am currently
-researching.
+However, I ultimately would like to add it back, but only time will tell...
