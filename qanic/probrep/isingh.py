@@ -58,11 +58,11 @@ class IsingH():
         """returns networkx graph visualization of connectivity."""
         return nx.draw_networkx(self.graph_Hz)   
 
-    def diagonalize(self):
+    def diag_Hz(self):
         """Returns eigen-energies and eigenstates of Hz."""
         return self.num_Hz.eigenstates()
 
-    def get_Hz_gs(self, etol=1e-8, stol=1e-12):
+    def Hz_gs_info(self, etol=1e-8, stol=1e-12):
         """
         Returns the ground-state energy/eigenstates/degeneracy of Hz.
         Inputs
@@ -78,7 +78,7 @@ class IsingH():
         result['gs'] = utils.qto_to_npa(result['gs'])
         return result
 
-    def get_dwaveH0_gs(self, etol=1e-8, stol=1e-12):
+    def dwaveH0_gs(self, etol=1e-8, stol=1e-12):
         """
         Returns the ground-state energy/eigenstates/degeneracy of H(s=0)
         Inputs
@@ -99,7 +99,7 @@ class IsingH():
         gs = utils.gs_calculator(H0, etol, stol)['gs']
         return gs
     
-    def get_dwaveH1_gs(self, etol=1e-8, stol=1e-12):
+    def dwaveH1_gs(self, etol=1e-8, stol=1e-12):
         """
         Returns the ground-state energy/eigenstates/degeneracy of H(s=1)
         Inputs
@@ -116,8 +116,6 @@ class IsingH():
         Avals = self.processor_data['Avals']
         Bvals = self.processor_data['Bvals']
         H1 = Avals[-1]*self.num_Hx + Bvals[-1]*self.num_Hz
-        print(Avals[-1])
-        print(Bvals[-1])
         # get ground-state and return it
         gs = utils.gs_calculator(H1, etol, stol)['gs']
         return gs

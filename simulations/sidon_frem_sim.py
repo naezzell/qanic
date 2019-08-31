@@ -81,7 +81,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
 
                 # diagonlize unless input wrong or uses too much memory
                 try:    
-                    gsinfo = H.get_Hz_gs()
+                    gsinfo = H.Hz_gs_info()
                     gsprobs = (gsinfo['gs'].conj()*gsinfo['gs']).real
                     ndegen = gsinfo['degen']
                     # get indices of non-zero probs
