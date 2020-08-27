@@ -13,12 +13,13 @@ import pandas as pd
 sys.path.append("..")
 import qanic as qa
 from qanic.numerics.hamgen import sidonKn
+from qanic.numerics.hamgen import sidon0Kn
 
 # number of trials needed for 95% confidence on 5% interval
 ss95_5 = {3: 23, 4: 43, 5: 66, 6: 92, 7: 117,
                8: 142, 9: 165, 10: 186}
 
-def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
+def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, include_zero=True, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing
     compared to forward and reverse annealing.
@@ -26,7 +27,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
     ntrials = 0
     for n in Hsizes:
         ntrials += (len(Tvals) * len(svals) * len(discs) * Htrials[n] * itrials)
-    
+
     # add input/output datasets to hdf5 file
     with h5py.File(filename, 'w') as f:
         # store meta-data for this entire simulation run
@@ -62,7 +63,10 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
     k_loop = 0
     for n in Hsizes:
         for j in range(Htrials[n]):
-            dictH,_ = sidonKn(n, hbool)
+            if include_zero is True:
+                dictH, _ sidon0Kn(n, hbool)
+            else:
+                dictH, _ = sidonKn(n, hbool)
             H = qa.IsingH(dictH)
             # generate the partitions of H
             part_list = list(part_scheme(H, 'all_F'))
@@ -70,7 +74,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
             for annparams in itertools.product(*[Tvals, svals, discs]):
                 if profile:
                     tic = time.perf_counter()
-    
+
                 T, sp, disc = annparams
                 # create the anneal schedules
                 fsch = [[0, 0], [T, 1]]

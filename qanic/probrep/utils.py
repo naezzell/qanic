@@ -35,17 +35,27 @@ def get_dwave_H(isingH):
 def get_numeric_H(isingH):
     """
     Wrapper to turn input H of valid type to QuTip H.
-    Input: isingH hamiltonian 
+    Input: isingH hamiltonian
     Output: [Hz, Hx] where Hz is QuTip rep of isingH
     and Hx is QuTip rep of D-Wave Hx
     """
     if isinstance(isingH, dict):
         return dict_to_qutip(isingH)
 
+def get_numeric_H_v2(isingH):
+    """
+    Wrapper to turn input H of valid type to QuTip H.
+    Input: isingH hamiltonian
+    Output: [Hz, Hx] where Hz is QuTip rep of isingH
+    and Hx is QuTip rep of D-Wave Hx
+    """
+    if isinstance(isingH, dict):
+        return dict_to_qutip_v2(isingH)
+
 def get_networkx_H(isingH):
     """
     Wrapper to turn input Hz of valid type to networkx H.
-    Input: isingH hamiltonian 
+    Input: isingH hamiltonian
     Output: Hz as networkx graph
     """
     if isinstance(isingH, dict):
@@ -77,7 +87,7 @@ def get_frem_Hs(qubits, part):
         else:
             HRz += HR[key] * nqubit_2pauli(qt.sigmaz(), qt.sigmaz(), key[0], key[1], num_q)
             HFz += HF[key] * nqubit_2pauli(qt.sigmaz(), qt.sigmaz(), key[0], key[1], num_q)
-            
+
     return (HFx, HFz, HRx, HRz)
 
 # *****************************************************************
@@ -86,7 +96,7 @@ def get_frem_Hs(qubits, part):
 
 def make_dwave_schedule(t1 = 20, direction = 'f', sp = 1, tp = 0, t2 = 0):
     """
-    Creates an annealing schedule that D-Wave can interpret.  
+    Creates an annealing schedule that D-Wave can interpret.
 
     Input Arguments (all floats)
     --------------------
@@ -121,7 +131,7 @@ def make_dwave_schedule(t1 = 20, direction = 'f', sp = 1, tp = 0, t2 = 0):
 
     if t1 < mint or t2-sp < mint:
         raise ValueError("minimum anneal time is: {mint}.".format(mint=mint))
-    
+
     #if s = 1, stop the anneal after t1 micro seconds
     if sp == 1:
         return [[0, 0], [t1, 1]]
@@ -140,7 +150,7 @@ def make_dwave_schedule(t1 = 20, direction = 'f', sp = 1, tp = 0, t2 = 0):
 def make_numeric_schedule(sch, disc=0.0001):
     """
     Creates a discretized version of anneal tuple anneal schedule
-    
+
     Inputs
     --------------------------------------------------
     sch: list of the form [[t0, s0], ..., [tf, sf]]
@@ -172,7 +182,7 @@ def make_FREM_init_state(HRinit, Rqubits):
     """
     Creates initial state for FREM annealing, i.e., project HRinit onto R
     partition and give (|0> - |1>)/Sqrt(2) superposition to HF qubits.
-    
+
     Input
     --------------------------------------------------
     HRinit: qutip.Qojb--initial state of HR partition
@@ -182,10 +192,10 @@ def make_FREM_init_state(HRinit, Rqubits):
     --------------------------------------------------
     state: qutip.Qojb--initial state of FREM anneal
     """
-    return 
+    return
 
 
-def loadAandB(file="/home/nic/inputdata/processor_annealing_schedule_DW_2000Q_2_June2018.csv"):
+def loadAandB(fileloc="/Users/worknic/Programming/frem/git-qanic-dev/qanic/probrep/processor_annealing_schedule_DW_2000Q_2_June2018.csv"):
     """
     Loads in A(s) and B(s) data from chip and interpolates using QuTip's
     cubic-spline function. Useful for numerical simulations.
@@ -196,7 +206,7 @@ def loadAandB(file="/home/nic/inputdata/processor_annealing_schedule_DW_2000Q_2_
     Bfunc: interpolated B(s) function
     """
 
-    Hdata = pd.read_csv(file)
+    Hdata = pd.read_csv(fileloc)
     # pd as in pandas Series form of data
     pdA = Hdata['A(s) (GHz)']
     pdB = Hdata['B(s) (GHz)']
@@ -310,7 +320,30 @@ def dict_to_qutip(dictH):
     Z = qto.sigmaz()
     nqbits = len([key for key in dictH.keys() if key[0] == key[1]])
     Hx = sum([nqubit_1pauli(X, m, nqbits) for m in range(nqbits)])
-    
+
+    zeros = [qto.qzero(2) for m in range(nqbits)]
+    Hz = qt.tensor(*zeros)
+
+    for key, value in dictH.items():
+        if key[0] == key[1]:
+            Hz += value*nqubit_1pauli(Z, key[0], nqbits)
+        else:
+            Hz += value*nqubit_2pauli(Z, Z, key[0], key[1], nqbits)
+
+    return [Hz, Hx]
+
+def dict_to_qutip_v2(dictH):
+    """
+    Converts ising H to QuTip Hz and makes QuTip Hx of D-Wave
+    in the process to avoid redundant function calls.
+    Note: Here, we use -Hx which is consistent with D-Wave.
+    """
+    # make useful operators
+    mX = (-1)*qto.sigmax()
+    Z = qto.sigmaz()
+    nqbits = len([key for key in dictH.keys() if key[0] == key[1]])
+    Hx = sum([nqubit_1pauli(mX, m, nqbits) for m in range(nqbits)])
+
     zeros = [qto.qzero(2) for m in range(nqbits)]
     Hz = qt.tensor(*zeros)
 
