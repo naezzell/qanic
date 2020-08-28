@@ -4,7 +4,7 @@ import networkx as nx
 import qutip as qt
 
 # internal utilities
-from . import utils
+import qanic.probrep._utils as utils
 
 class IsingH():
     """Class that performs common protocols on an Ising Hamiltonian."""

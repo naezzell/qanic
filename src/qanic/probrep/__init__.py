@@ -2,4 +2,5 @@
 QANic - A collection of quantum annealing software written for my research
 """
 
-from qanic.graphing import makegraphs
+from qanic.probrep._isingh import IsingH
+import qanic.probrep._utils as utils

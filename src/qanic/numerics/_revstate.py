@@ -51,10 +51,10 @@ def c_diag_HR(HRdict, Rqubits):
     state: dict--contains qubit to qutip state mapping {q0: ket(q0), ...}
     """
     # create IsingH representation of dictHR
-    HR = qa.IsingH(HRdict)
+    HR = qa.probrep.IsingH(HRdict)
     qubits = HR.qubits
     # get non-zero indices of gs (which encode state)
-    gs = HR.get_Hz_gs()['gs']
+    gs = HR.Hz_gs_info()['gs']
     nz_idx = np.nonzero(gs)
 
     # select a random entry from non-zero superposition indices

@@ -2,7 +2,6 @@
 # internal import
 import time
 import itertools
-import sys
 
 # data-handling imports
 import h5py
@@ -10,16 +9,14 @@ import numpy as np
 import pandas as pd
 
 #internal imports
-sys.path.append("..")
 import qanic as qa
-from qanic.numerics.hamgen import sidonKn
-from qanic.numerics.hamgen import sidon0Kn
+from qanic.numerics import hamgen
 
 # number of trials needed for 95% confidence on 5% interval
 ss95_5 = {3: 23, 4: 43, 5: 66, 6: 92, 7: 117,
                8: 142, 9: 165, 10: 186}
 
-def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, include_zero=True, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
+def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, include_zero, hx_ver, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing
     compared to forward and reverse annealing.
@@ -64,10 +61,10 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
     for n in Hsizes:
         for j in range(Htrials[n]):
             if include_zero is True:
-                dictH, _ sidon0Kn(n, hbool)
+                dictH, _ = hamgen.sidon0Kn(n, hbool)
             else:
-                dictH, _ = sidonKn(n, hbool)
-            H = qa.IsingH(dictH)
+                dictH, _ = hamgen.sidonKn(n, hbool)
+            H = qa.probrep.IsingH(dictH, hx_ver)
             # generate the partitions of H
             part_list = list(part_scheme(H, 'all_F'))
             # cartesian product over annealing parameters
@@ -84,7 +81,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                 listdata = []
 
                 # diagonlize unless input wrong or uses too much memory
-                try:    
+                try:
                     gsinfo = H.Hz_gs_info()
                     gsprobs = (gsinfo['gs'].conj()*gsinfo['gs']).real
                     ndegen = gsinfo['degen']
@@ -147,7 +144,6 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
 
                     # turn data into pandas DataFrame
                     df = pd.DataFrame(listdata)
-                    print(df)
 
                     # save runs separately
                     f_run = df.loc[df['method'] == 'f']

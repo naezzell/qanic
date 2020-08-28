@@ -195,7 +195,7 @@ def make_FREM_init_state(HRinit, Rqubits):
     return
 
 
-def loadAandB(fileloc="/Users/worknic/Programming/frem/git-qanic-dev/qanic/probrep/processor_annealing_schedule_DW_2000Q_2_June2018.csv"):
+def loadAandB(fileloc="/Users/worknic/Programming/frem/git-qanic-dev/src/qanic/probrep/processor_annealing_schedule_DW_2000Q_2_June2018.csv"):
     """
     Loads in A(s) and B(s) data from chip and interpolates using QuTip's
     cubic-spline function. Useful for numerical simulations.

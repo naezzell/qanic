@@ -1,25 +1,24 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
-import sys
 import pandas as pd
-sys.path.append("/home/nic/Dropbox/qanic-dev/")
-sys.path.append("/home/nic/Dropbox/qanic-dev/simulations/")
-from qanic.numerics.partgen import all_parts
-from qanic.numerics.revstate import ml_measurement, c_diag_HR
+from qanic.numerics import partgen
+from qanic.numerics import partgen, revstate
 from sidon_frem_sim import sidon_frem_sim
 
-Hsizes = [3, 4]
+Hsizes = [3]
 hbool = False
 Tvals = [1]
 svals = [0.27]
 discs = [.1]
-r_init = ml_measurement
-frem_init = c_diag_HR
-part_scheme = all_parts
-filename = '3qubit_10T.hdf5'
-currdir = "/home/nic/Dropbox/qanic-dev/simualtions"
+r_init = revstate.ml_measurement
+frem_init = revstate.c_diag_HR
+part_scheme = partgen.all_parts
+include_zero = False
+hx_ver = 1
+filename = f'qubits_{Hsizes}_Tvals_{Tvals}_zero_{include_zero}_hxver_{hx_ver}_.hdf5'
+currdir = "."
 
-sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, filename, currdir, profile=True)
+sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, include_zero, hx_ver, filename, currdir, profile=True)
 
 

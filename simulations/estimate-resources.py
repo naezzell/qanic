@@ -8,10 +8,10 @@ Tvalues = [1, 10, 100]
 # 95% confidence with 5% confidence interval
 sample_size = {3: 23, 4: 43, 5: 66, 6: 92, 7: 117,
                8: 142, 9: 165, 10: 186}
-        
+
 
 def time_estimate(n, T, unit='s'):
-    """ 
+    """
     Uses the fitted function from empirical data on scout
     MSU HPC^2 to estimate time to run simulation.
     """

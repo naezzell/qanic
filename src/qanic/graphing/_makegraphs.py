@@ -55,7 +55,7 @@ def all_graph_plot(df, indvar='Hsizes', figname=None):
                     bbox_inches='tight')
 
     return fig
-    
+
 
 def prob_comp_plot(df, indvar='Hsizes', figname=None, ax=None):
     """
@@ -66,21 +66,21 @@ def prob_comp_plot(df, indvar='Hsizes', figname=None, ax=None):
     complist = ['f_probs', 'r_probs', 'bfrem_probs', 'avgfrem_probs']
     data = df.melt(id_vars=[indvar], value_vars=complist,
                     var_name='Anneal Type', value_name='Probability')
-    
+
     # plot the data
     if ax is None:
         fig, ax = plt.subplots()
     g = sns.catplot(x=indvar, y='Probability', hue='Anneal Type',
                 data=data, kind='bar', legend_out=True, ax=ax)
     ax.set(ylim=(0, 1))
-    
+
     # change the labels
     new_labels = ['F', 'R', 'Best FREM', 'Avg FREM']
     for t, l in zip(ax.legend().get_texts(), new_labels): t.set_text(l)
     # add probability label above bars
     for p in ax.patches:
         width, height = p.get_width(), p.get_height()
-        x, y = p.get_xy() 
+        x, y = p.get_xy()
         ax.annotate('{:.0}'.format(height), (p.get_x()+.5*width,
                     p.get_y() + height + 0.01), ha = 'center')
 
@@ -106,14 +106,14 @@ def bt_comp_plot(df, indvar='Hsizes', figname=None, ax=None):
                    hue='Anneal Type', data=data, kind='bar',
                    legend_out=True, ax=ax)
     ax.set(ylim=(0, 1))
-    
+
     # relabel legend
     new_labels = ['F', 'R']
     for t, l in zip(ax.legend().get_texts(), new_labels): t.set_text(l)
     # add numbers above bars
     for p in ax.patches:
         width, height = p.get_width(), p.get_height()
-        x, y = p.get_xy() 
+        x, y = p.get_xy()
         ax.annotate('{:0}'.format(height), (p.get_x()+.5*width,
                     p.get_y() + height + 0.01), ha = 'center')
 
