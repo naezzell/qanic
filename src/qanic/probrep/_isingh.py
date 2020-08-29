@@ -9,7 +9,7 @@ import qanic.probrep._utils as utils
 class IsingH():
     """Class that performs common protocols on an Ising Hamiltonian."""
 
-    def __init__(self, Hz, kind='unspecified', AandBfile='default', hx_ver=0):
+    def __init__(self, Hz, kind='unspecified', AandBfile='default'):
         """
         Instatiates an Ising Hamiltonian.
 
@@ -37,16 +37,9 @@ class IsingH():
         self.graph_Hz = utils.get_networkx_H(self.Hz)
 
         # create the numeric Hamiltonian amenable to QuTip operations
-        if hx_ver == 0:
-            num_H = utils.get_numeric_H(self.Hz)
-            self.num_Hz = num_H[0]
-            self.num_Hx = num_H[1]
-        elif hx_ver == 1:
-            num_H = utils.get_numeric_H_v2(self.Hz)
-            self.num_Hz = num_H[0]
-            self.num_Hx = num_H[1]
-
-        self.hx_ver = hx_ver
+        num_H = utils.get_numeric_H(self.Hz)
+        self.num_Hz = num_H[0]
+        self.num_Hx = num_H[1]
 
         # if processor data is loaded, load in A and B functions
         if AandBfile is not None:
@@ -157,14 +150,9 @@ class IsingH():
         listH = [[self.num_Hx, sch_A], [self.num_Hz, sch_B]]
         # calculate ground-state at H(t=0) if init_state not specified
         if init_state is None:
-            if self.hx_ver == 0:
-                xstate = (qt.ket('0') - qt.ket('1')).unit()
-                statelist = [xstate for i in range(len(self.qubits))]
-                init_state = qt.tensor(*statelist)
-            elif self.hx_ver == 1:
-                xstate = (qt.ket('0') + qt.ket('1')).unit()
-                statelist = [xstate for i in range(len(self.qubits))]
-                init_state = qt.tensor(*statelist)
+            xstate = (qt.ket('0') + qt.ket('1')).unit()
+            statelist = [xstate for i in range(len(self.qubits))]
+            init_state = qt.tensor(*statelist)
 
         else:
             statelist = []

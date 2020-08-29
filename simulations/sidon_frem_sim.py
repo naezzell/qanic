@@ -16,7 +16,7 @@ from qanic.numerics import hamgen
 ss95_5 = {3: 23, 4: 43, 5: 66, 6: 92, 7: 117,
                8: 142, 9: 165, 10: 186}
 
-def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, include_zero, hx_ver, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
+def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_scheme, include_zero, filename, datadir = '', Htrials=ss95_5, itrials=1, store_raw=False, profile=False):
     """
     Tests the efficacy of FREM (forward-reverse error mitigation) annealing
     compared to forward and reverse annealing.
@@ -64,7 +64,7 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                 dictH, _ = hamgen.sidon0Kn(n, hbool)
             else:
                 dictH, _ = hamgen.sidonKn(n, hbool)
-            H = qa.probrep.IsingH(dictH, hx_ver)
+            H = qa.probrep.IsingH(dictH)
             # generate the partitions of H
             part_list = list(part_scheme(H, 'all_F'))
             # cartesian product over annealing parameters

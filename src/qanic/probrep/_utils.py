@@ -42,16 +42,6 @@ def get_numeric_H(isingH):
     if isinstance(isingH, dict):
         return dict_to_qutip(isingH)
 
-def get_numeric_H_v2(isingH):
-    """
-    Wrapper to turn input H of valid type to QuTip H.
-    Input: isingH hamiltonian
-    Output: [Hz, Hx] where Hz is QuTip rep of isingH
-    and Hx is QuTip rep of D-Wave Hx
-    """
-    if isinstance(isingH, dict):
-        return dict_to_qutip_v2(isingH)
-
 def get_networkx_H(isingH):
     """
     Wrapper to turn input Hz of valid type to networkx H.
@@ -311,28 +301,6 @@ def dictH_to_dwaveH(dictH):
     return [h_vals, j_vals]
 
 def dict_to_qutip(dictH):
-    """
-    Converts ising H to QuTip Hz and makes QuTip Hx of D-Wave
-    in the process to avoid redundant function calls.
-    """
-    # make useful operators
-    X = qto.sigmax()
-    Z = qto.sigmaz()
-    nqbits = len([key for key in dictH.keys() if key[0] == key[1]])
-    Hx = sum([nqubit_1pauli(X, m, nqbits) for m in range(nqbits)])
-
-    zeros = [qto.qzero(2) for m in range(nqbits)]
-    Hz = qt.tensor(*zeros)
-
-    for key, value in dictH.items():
-        if key[0] == key[1]:
-            Hz += value*nqubit_1pauli(Z, key[0], nqbits)
-        else:
-            Hz += value*nqubit_2pauli(Z, Z, key[0], key[1], nqbits)
-
-    return [Hz, Hx]
-
-def dict_to_qutip_v2(dictH):
     """
     Converts ising H to QuTip Hz and makes QuTip Hx of D-Wave
     in the process to avoid redundant function calls.
