@@ -201,8 +201,9 @@ def loadAandB(fileloc="/Users/worknic/Programming/frem/git-qanic-dev/src/qanic/p
     pdA = Hdata['A(s) (GHz)']
     pdB = Hdata['B(s) (GHz)']
     pds = Hdata['s']
-    Avals = np.array(pdA)
-    Bvals = np.array(pdB)
+    # diving by 2 to match the D-Wave Hamiltonian convention
+    Avals = np.array(pdA) / 2
+    Bvals = np.array(pdB) / 2
     svals = np.array(pds)
 
     processor_data = {'svals': svals, 'Avals': Avals, 'Bvals': Bvals}
