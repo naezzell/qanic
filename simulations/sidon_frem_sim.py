@@ -197,13 +197,12 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                         p_cbtr = None
 
                     # set-up file names for raw data and summary data
-                    date = time.strftime("%dd%mm%Yy-%Hh%Mm%Ss")
-                    infostr = "H-{H}_date-{date}".format(H=H.kind, date=date)
-                    raw_file = "{ddir}raw_{info}.csv".format(ddir=datadir, info=infostr)
+                    f_tag = f"{filename}"[:-5]
+                    raw_fname = f"{f_tag}_raw_T_{T}_sp_{sp}_Hsize_{n}_sample_{j}_inittrial_{jj}.csv"
 
                     # dump raw pandas df to raw file
                     if store_raw is True:
-                        df.to_csv(raw_file, index=False)
+                        df.to_csv(raw_fname, index=False)
 
                     # print bulk/sumary data to summ_file
                     with h5py.File(filename, 'a') as f:
