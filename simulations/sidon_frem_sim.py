@@ -11,6 +11,7 @@ import pandas as pd
 #internal imports
 import qanic as qa
 from qanic.numerics import hamgen
+from qanic.numerics import revstate
 
 # number of trials needed for 95% confidence on 5% interval
 ss95_5 = {3: 23, 4: 43, 5: 66, 6: 92, 7: 117,
@@ -47,12 +48,16 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
         # store datasets for the outputs
         og = f.create_group('Outputs')
         og.create_dataset('f_probs', (ntrials,), dtype='f')
-        og.create_dataset('r_probs', (ntrials,), dtype='f')
+        og.create_dataset('r_gs_probs', (ntrials,), dtype='f')
+        og.create_dataset('r_me_probs', (ntrials,), dtype='f')
+        og.create_dataset('r_ct_probs', (ntrials,), dtype='f')
         og.create_dataset('bfrem_probs', (ntrials,), dtype='f')
         og.create_dataset('bfrem_psizes', (ntrials,), dtype='f')
         og.create_dataset('avgfrem_probs', (ntrials,), dtype='f')
         og.create_dataset('p_btf', (ntrials,), dtype='f')
-        og.create_dataset('p_btr', (ntrials,), dtype='f')
+        og.create_dataset('p_btr_gs', (ntrials,), dtype='f')
+        og.create_dataset('p_btr_me', (ntrials,), dtype='f')
+        og.create_dataset('p_btr_ct', (ntrials,), dtype='f')
         if profile:
             og.create_dataset('rtime', (ntrials,), dtype='f')
             #og.create_dataset('pmem', (ntrials,), dtype='f')
@@ -110,17 +115,39 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                 dictdatum = {'method': 'f', 'pgs': sum(gs_fprobs), 'gs_dist': gs_fprobs, 'nRq': None, 'critq_R': None, 'pM_R': None}
                 listdata.append(dictdatum)
 
+                # perform numerical reverse anneal starting in gs
+                qubits = H.qubits
+                # just get first "classical" groundstate
+                gs_idx = nzidxs[0][0]
+                gs_init = revstate.infer_classical_state(qubits, gs_idx)
+                rprobs1 = H.numeric_anneal(rsch, disc, gs_init)
+                gs_rprobs1 = rprobs1[nzidxs]
+                # save result
+                dictdatum = {'method': 'r_gs', 'pgs': sum(gs_rprobs1),
+                             'gs_dist': gs_rprobs1, 'nRq': None,
+                             'critq_R': None, 'pM_R': None}
+                listdata.append(dictdatum)
+
                 for jj in range(itrials):
-                # perform reverse anneal using r_init for state
-                    init_state = r_init(H, fprobs)
-                    rprobs = H.numeric_anneal(rsch, disc, init_state)
-                    gs_rprobs = rprobs[nzidxs]
+                    # perform numerical reverse anneal with f_prob measurement
+                    m_init = revstate.measurement(H, fprobs)
+                    rprobs2 = H.numeric_anneal(rsch, disc, m_init)
+                    gs_rprobs2 = rprobs2[nzidxs]
                     # save result
-                    dictdatum = {'method': 'r', 'pgs': sum(gs_rprobs),
-                                 'gs_dist': gs_rprobs, 'nRq': None,
+                    dictdatum = {'method': 'r_me', 'pgs': sum(gs_rprobs2),
+                                 'gs_dist': gs_rprobs2, 'nRq': None,
                                  'critq_R': None, 'pM_R': None}
                     listdata.append(dictdatum)
 
+                    # perform numerical reverse anneal with coin toss init
+                    coin_init = revstate.coin_toss(H)
+                    rprobs3 = H.numeric_anneal(rsch, disc, coin_init)
+                    gs_rprobs3 = rprobs3[nzidxs]
+                    # save result
+                    dictdatum = {'method': 'r_ct', 'pgs': sum(gs_rprobs3),
+                                 'gs_dist': gs_rprobs3, 'nRq': None,
+                                 'critq_R': None, 'pM_R': None}
+                    listdata.append(dictdatum)
                     # perform FREM annealing over partitions
                     numpar = 0
                     crit_exists = False
@@ -147,26 +174,36 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
 
                     # save runs separately
                     f_run = df.loc[df['method'] == 'f']
-                    r_run = df.loc[df['method'] == 'r']
+                    r_gs_run = df.loc[df['method'] == 'r_gs']
+                    r_me_run = df.loc[df['method'] == 'r_me']
+                    r_ct_run = df.loc[df['method'] == 'r_ct']
                     frem_runs = df.loc[df['method'] == 'frem']
 
                     # get bulk statistics to compare methods
                     # find best gs prob of each method
                     bf_pgs = f_run['pgs'].max()
-                    br_pgs = r_run['pgs'].max()
+                    br_gs_pgs = r_gs_run['pgs'].max()
+                    br_me_pgs = r_me_run['pgs'].max()
+                    br_ct_pgs = r_ct_run['pgs'].max()
                     bfrem_pgs = frem_runs['pgs'].max()
                     # num qubits in best partition
                     nq_bp = df.iloc[frem_runs['pgs'].idxmax()]['nRq']
                     # get % frem better than forward/reverse
                     btf_runs = frem_runs[frem_runs.pgs > bf_pgs]
-                    btr_runs = frem_runs[frem_runs.pgs > br_pgs]
+                    btr_gs_runs = frem_runs[frem_runs.pgs > br_gs_pgs]
+                    btr_me_runs = frem_runs[frem_runs.pgs > br_me_pgs]
+                    btr_ct_runs = frem_runs[frem_runs.pgs > br_ct_pgs]
                     p_btf = (len(btf_runs) / numpar) * 100
-                    p_btr = (len(btr_runs) / numpar) * 100
+                    p_btr_gs = (len(btr_gs_runs) / numpar) * 100
+                    p_btr_me = (len(btr_me_runs) / numpar) * 100
+                    p_btr_ct = (len(btr_ct_runs) / numpar) * 100
                     # get avg gs_prob of ALL frem runs
                     avgfrem_pgs = frem_runs['pgs'].mean()
                     # of those that are better, find distribution of partition size
                     btf_partdist = dict((btf_runs['nRq'].value_counts() / len(btf_runs)) * 100)
-                    btr_partdist = dict((btr_runs['nRq'].value_counts() / len(btr_runs)) * 100)
+                    btr_gs_partdist = dict((btr_gs_runs['nRq'].value_counts() / len(btr_gs_runs)) * 100)
+                    btr_me_partdist = dict((btr_me_runs['nRq'].value_counts() / len(btr_me_runs)) * 100)
+                    btr_ct_partdist = dict((btr_ct_runs['nRq'].value_counts() / len(btr_ct_runs)) * 100)
                     # get stats on critical qubit
                     if crit_exists:
                         # % best frem result that is critical
@@ -211,12 +248,16 @@ def sidon_frem_sim(Hsizes, hbool, Tvals, svals, discs, r_init, frem_init, part_s
                         f['Inputs/svals'][k_loop] = sp
                         f['Inputs/discs'][k_loop] = disc
                         f['Outputs/f_probs'][k_loop] = bf_pgs
-                        f['Outputs/r_probs'][k_loop] = br_pgs
+                        f['Outputs/r_gs_probs'][k_loop] = br_gs_pgs
+                        f['Outputs/r_me_probs'][k_loop] = br_me_pgs
+                        f['Outputs/r_ct_probs'][k_loop] = br_ct_pgs
                         f['Outputs/bfrem_probs'][k_loop] = bfrem_pgs
                         f['Outputs/bfrem_psizes'][k_loop] = nq_bp
                         f['Outputs/avgfrem_probs'][k_loop] = avgfrem_pgs
                         f['Outputs/p_btf'][k_loop] = p_btf
-                        f['Outputs/p_btr'][k_loop] = p_btr
+                        f['Outputs/p_btr_gs'][k_loop] = p_btr_gs
+                        f['Outputs/p_btr_me'][k_loop] = p_btr_me
+                        f['Outputs/p_btr_ct'][k_loop] = p_btr_ct
                         if profile:
                             toc = time.perf_counter()
                             rtime = toc - tic

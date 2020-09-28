@@ -34,6 +34,77 @@ def ml_measurement(H, probs, subset=None):
     # return classical state with tensor product ordering assumption
     return infer_classical_state(qubits, max_idx, subset)
 
+def c_diag_H(H):
+    """
+    Diag H, find a random classical ground-state and return it
+
+    Inputs
+    ---------------------------------------------------------------------
+    H: IsingH Hamiltonian
+
+    Output
+    ---------------------------------------------------------------------
+    state: dict--contains qubit to qutip state mapping {q0: ket(q0), ...}
+    """
+    # create IsingH representation of dictHR
+    qubits = H.qubits
+    # get non-zero indices of gs (which encode state)
+    gs = H.Hz_gs_info()['gs']
+    nz_idx = np.nonzero(gs)
+
+    # select a random entry from non-zero superposition indices
+    gs_idx = random.choice(nz_idx[0])
+
+    # return classical state with tensor product ordering assumption
+    return infer_classical_state(qubits, gs_idx, qubits)
+
+def coin_toss(H):
+    """
+    Guesses ground-state of H by a coin-toss for each qubit (up/down 50/50).
+
+    Inputs
+    ---------------------------------------------------------------------
+    H: IsingH Hamiltonian
+
+    Output
+    ---------------------------------------------------------------------
+    state: dict--contains qubit to qutip state mapping {q0: ket(q0), ...}
+    """
+    state = {}
+    # create IsingH representation of dictHR
+    qubits = H.qubits
+    for q in qubits:
+        ket = random.choice(['0', '1'])
+        state[q] = qt.ket(ket)
+
+    return state
+
+def measurement(H, probs, subset=None):
+    """
+    Given [H] and [probs], "measures" the state with probability of each
+    state given by [probs]. Assumes standard tensor product ordering.
+
+    Inputs
+    ---------------------------------------------------------------------
+    H: IsingH Hamiltonian
+    probs: list of probability amplitudes for each composite qubit state
+    subset: list of qubits of interest
+
+    Output
+    ---------------------------------------------------------------------
+    m_state: measured state as a dictionary, {q0: ket(q0), q1: ket(q1), ...}
+    """
+    qubits = H.qubits
+    # if we are not considered a subset, extract all qubits
+    if subset is None:
+        subset = qubits
+    # "measures" from the pmf
+    indices = [i for i in range(len(probs))]
+    meas_i = random.choices(indices, probs)[0]
+
+    # return classical state with tensor product ordering assumption
+    return infer_classical_state(qubits, meas_i, subset)
+
 # ------------------------------------------------------------
 # frem annealing R partition state init schemes
 # ------------------------------------------------------------
@@ -65,7 +136,7 @@ def c_diag_HR(HRdict, Rqubits):
 
 # ------------------------------------------------------------
 # Helper Functions
-# ------------------------------------------------------------    
+# ------------------------------------------------------------
 def infer_classical_state(qubits, idx, subset=None):
     """
     Finds classical state of n qubits given index of basis state in H2^n.
